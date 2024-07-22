@@ -4,10 +4,18 @@
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
+#include <zephyr/settings/settings.h>
 
 #include <esp_sleep.h>
 
 LOG_MODULE_REGISTER(main, CONFIG_APP_LOG_LEVEL);
+
+struct config {
+   bool valid;
+   int counter;
+};
+
+static config cfg = {.valid = false, .counter = 0};
 
 static const struct gpio_dt_spec led_gpio = GPIO_DT_SPEC_GET(DT_NODELABEL(led), gpios);
 
@@ -74,10 +82,41 @@ void light_sleep(k_timeout_t timeout) {
 #endif
 }
 
+static int settings_set_handler(const char *name, size_t len, settings_read_cb read_cb, void *cb_arg) {
+   const char *next;
+   if (settings_name_steq(name, "settings", &next) && !next) {
+      if (len != sizeof(config)) {
+         return -EINVAL;
+      }
+
+      int rc = read_cb(cb_arg, &cfg, sizeof(config));
+      if (rc >= 0) {
+         LOG_INF("Restored settings: %d / %d", cfg.valid, cfg.counter);
+         return 0;
+      }
+
+      return rc;
+   }
+
+   return 0;
+}
+
+SETTINGS_STATIC_HANDLER_DEFINE(hei_handler, "hei", NULL, settings_set_handler, NULL, NULL);
+
 int main() {
    LOG_DBG("Zephyr Example Application %s", CONFIG_BOARD);
    if (!led_init()) {
       LOG_ERR("LED Init failed");
+      return -1;
+   }
+
+   if (auto err = settings_subsys_init()) {
+      LOG_ERR("Settings initialization failed: %d", err);
+      return -1;
+   }
+
+   if (auto err = settings_load_subtree("hei")) {
+      LOG_ERR("Settings load failed: %d", err);
       return -1;
    }
 
@@ -86,5 +125,18 @@ int main() {
       light_sleep(K_SECONDS(5));
       led_state(is_on);
       is_on = !is_on;
+
+      ++cfg.counter;
+      LOG_INF("Counter: %d", cfg.counter);
+
+      if (cfg.counter % 5 == 0) {
+         cfg.valid = true;
+         if (auto err = settings_save_one("hei/settings", &cfg, sizeof(cfg))) {
+            LOG_ERR("Settings save failed: %d", err);
+            return -1;
+         } else {
+            LOG_DBG("Saved settings: %d", cfg.counter);
+         }
+      }
    }
 }
