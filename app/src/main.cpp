@@ -34,6 +34,7 @@ void led_state(bool is_on) {
 }
 
 void light_sleep(k_timeout_t timeout) {
+#if CONFIG_PM
    while (true) {
       if (K_TIMEOUT_EQ(timeout, K_NO_WAIT)) {
          return;
@@ -68,6 +69,9 @@ void light_sleep(k_timeout_t timeout) {
 
       timeout = K_USEC(sleep_us - actual_us);
    }
+#else
+   k_sleep(timeout);
+#endif
 }
 
 int main() {
@@ -77,15 +81,10 @@ int main() {
       return -1;
    }
 
-   int counter = 0;
    bool is_on = true;
    while (true) {
       light_sleep(K_SECONDS(5));
-
-      LOG_INF("Counter: %d", counter++);
       led_state(is_on);
       is_on = !is_on;
    }
-
-   return 0;
 }

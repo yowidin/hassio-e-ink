@@ -19,3 +19,10 @@ west update
 ```
 
 Note: this will take a while.
+
+
+## Fetch ESP32 RF libraries
+
+```bash
+west blobs fetch hal_espressif
+```

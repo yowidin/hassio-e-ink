@@ -6,8 +6,8 @@
 			label = "led";
 		};
 	};
+};
 
-	wifi: wifi {
-		status = "okay";
-	};
+&wifi {
+	status = "okay";
 };
