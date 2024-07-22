@@ -1,0 +1,50 @@
+compile_commands.json
+
+.DS_Store
+.venv
+.cache
+
+# Common build directories
+**/cmake-build-*/
+**/build
+**/build/*
+**/_builds
+**/_builds/*
+**/_build
+**/_build/*
+**/_build-*/
+
+# IDE Files
+/.kdev4
+/.kdev4/*
+*.kdev4
+
+.idea
+
+# swap
+[._]*.s[a-w][a-z]
+[._]s[a-w][a-z]
+
+# temporary
+.netrwhist
+*~
+
+# Python compiled
+*.pyc
+
+# Qt Creator
+*.user
+
+# Python project and python module cache
+/.project
+/.pydevproject
+**/__pycache__
+
+# File-based project format
+*.iws
+
+# mpeltonen/sbt-idea plugin
+.idea_modules/
+
+# JIRA plugin
+atlassian-ide-plugin.xml
