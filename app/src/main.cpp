@@ -6,6 +6,9 @@
 #include <zephyr/logging/log.h>
 #include <zephyr/settings/settings.h>
 
+#include <hei/settings.h>
+#include <hei/fuel_gauge.h>
+
 #include <esp_sleep.h>
 
 LOG_MODULE_REGISTER(main, CONFIG_APP_LOG_LEVEL);
@@ -120,6 +123,11 @@ int main() {
       return -1;
    }
 
+   if (!hei_fuel_gauge_init()) {
+      LOG_ERR("Fuel gauge init failed");
+      return -1;
+   }
+
    bool is_on = true;
    while (true) {
       light_sleep(K_SECONDS(5));
@@ -128,6 +136,7 @@ int main() {
 
       ++cfg.counter;
       LOG_INF("Counter: %d", cfg.counter);
+      hei_fuel_gauge_print();
 
       if (cfg.counter % 5 == 0) {
          cfg.valid = true;
