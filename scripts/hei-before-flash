@@ -1,0 +1,35 @@
+#!/usr/bin/env python3
+
+import psutil
+import subprocess
+import sys
+
+APP = "tio"
+
+# Get the command for the running app
+app_cmd = None
+for proc in psutil.process_iter(['name', 'cmdline']):
+    if proc.info['name'] == APP:
+        app_cmd = ' '.join(proc.info['cmdline'])
+        break
+
+if not app_cmd:
+    print("No app")
+    sys.exit(1)
+
+# Get the tmux pane ID
+tmux_output = subprocess.run(["tmux", "list-panes", "-a", "-F", "#{pane_id} #{pane_current_command}"],
+                             capture_output=True, text=True).stdout
+pane = None
+for line in tmux_output.splitlines():
+    if APP in line:
+        pane = line.split()[0]
+        break
+
+if pane:
+    subprocess.run(["tmux", "send-keys", "-t", pane, "C-t", "q"])
+else:
+    print("No pane")
+    sys.exit(2)
+
+print(f"{pane};{app_cmd}")

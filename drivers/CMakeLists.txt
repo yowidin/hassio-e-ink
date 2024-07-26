@@ -1,0 +1,1 @@
+add_subdirectory_ifdef(CONFIG_EPD_IT8951 it8951)

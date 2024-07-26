@@ -1,0 +1,32 @@
+diff --git a/scripts/west_commands/runners/esp32.py b/scripts/west_commands/runners/esp32.py
+index 0ccf0c98d1f..7017b0944d3 100644
+--- a/scripts/west_commands/runners/esp32.py
++++ b/scripts/west_commands/runners/esp32.py
+@@ -100,6 +100,19 @@ class Esp32BinaryRunner(ZephyrBinaryRunner):
+             no_stub=args.esp_no_stub)
+ 
+     def do_run(self, command, **kwargs):
++        # Close tio connection
++        import subprocess
++        try:
++            # Run the command and capture the output
++            output = self.check_output('hei-before-flash', shell=True, text=True)
++            parts = output.split(';')
++            if len(parts) == 2:
++                pane_id = parts[0].strip()
++                tio_command = parts[1].strip()
++            self.logger.info(f"tio instance found on {pane_id} started as {tio_command}")
++        except subprocess.CalledProcessError as e:
++            self.logger.info("tio not found")
++
+         self.require(self.espidf)
+ 
+         # Add Python interpreter
+@@ -132,3 +145,7 @@ class Esp32BinaryRunner(ZephyrBinaryRunner):
+         self.logger.info("Flashing esp32 chip on {} ({}bps)".
+                          format(self.device, self.baud))
+         self.check_call(cmd_flash)
++
++        # Restore tio connection
++        if pane_id is not None and tio_command is not None:
++            self.check_call(['hei-after-flash', pane_id, tio_command])

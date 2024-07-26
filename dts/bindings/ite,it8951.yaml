@@ -1,0 +1,33 @@
+description: |
+  IT8951 EPD (Electronic Paper Display) Timing Controller driver.
+
+compatible: "ite,it8951"
+
+include: spi-device.yaml
+
+properties:
+  ready-gpios:
+    type: phandle-array
+    required: true
+    description: |
+      Used by the IT8951 to signal to the host when it is ready (low when busy)
+
+  reset-gpios:
+    type: phandle-array
+    description: |
+      Can be used by the host to rest the IT8951 (active low)
+
+  cs-gpios:
+    type: phandle-array
+    description: |
+      Custom CS control (we need to keep the line down for the whole transaction, not just a single buffer)
+
+  vcom:
+    type: int
+    default: 2500
+    description: |
+        The VCOM voltages of every e-Paper panel are different and they are printed on FPC cable. Please make sure that
+        you use the correct VCOM, otherwise, the display will become worse if the E-paper works under the wrong VCOM
+        value for a long time.
+        The default is -2.5V. For example, -1.53V should be set as 1530.
+

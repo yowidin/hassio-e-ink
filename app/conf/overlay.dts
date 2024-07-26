@@ -1,3 +1,5 @@
+#include <freq.h>
+
 / {
 	led {
 		compatible = "gpio-leds";
@@ -19,7 +21,7 @@
 		group1 {
 			pinmux = <SPIM2_MISO_GPIO14>,
 					 <SPIM2_SCLK_GPIO27>,
-					 <SPIM2_CSEL_GPIO26>;
+					 <SPIM2_CSEL_GPIO15>; // Just a dummy CS pin
 		};
 
 		group2 {
@@ -37,22 +39,38 @@
 			output-high;
 		};
 	};
+
 };
 
 &spi2 {
-	#address-cells = <1>;
-	#size-cells = <0>;
 	status = "okay";
+
 	pinctrl-0 = <&spim2_custom>;
 	pinctrl-names = "default";
+
+	/* Just a dummy CS pin */
+	cs-gpios = <&gpio0 15 GPIO_ACTIVE_LOW>;
+
+	display: display@0 {
+		compatible = "ite,it8951";
+		status = "okay";
+		reg = <0>;
+		spi-max-frequency = <DT_FREQ_M(4)>;
+		spi-hold-cs;
+
+		ready-gpios = <&gpio1 2 0>;
+		reset-gpios = <&gpio0 13 GPIO_ACTIVE_LOW>;
+		cs-gpios = <&gpio0 26 GPIO_ACTIVE_LOW>;
+		vcom = <1710>;
+	};
 };
 
 &i2c0 {
 	status = "okay";
 	clock-frequency = <I2C_BITRATE_STANDARD>;
 
-	sda-gpios = <&gpio0 33 GPIO_OPEN_DRAIN>;
-	scl-gpios = <&gpio0 32 GPIO_OPEN_DRAIN>;
+	sda-gpios = <&gpio1 1 GPIO_OPEN_DRAIN>;
+	scl-gpios = <&gpio1 0 GPIO_OPEN_DRAIN>;
 
 	pinctrl-0 = <&i2c0_custom>;
 	pinctrl-names = "default";

@@ -1,0 +1,24 @@
+config EPD_IT8951
+	bool "ITE IT8951 Driver"
+	default y
+	depends on DT_HAS_ITE_IT8951_ENABLED
+	depends on SPI
+	help
+	  Enable IT8951 driver for electronic paper displays
+
+if EPD_IT8951
+
+    config EPD_IT8951_INIT_PRIORITY
+        int
+        default 80
+        help
+          Device driver initialization priority.
+          Device is connected to SPI bus, it has to
+          be initialized after SPI driver.
+
+    module = IT8951
+    module-dep = LOG
+    module-str = IT8951
+    source "subsys/logging/Kconfig.template.log_config"
+
+endif

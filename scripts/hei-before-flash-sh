@@ -1,0 +1,20 @@
+#!/bin/bash
+
+APP="tio"
+APP_CMD=$(ps | grep "\s${APP}\s" | cut -w -f 4-20 | awk '{$1=$1; print}')
+if [ -z "${APP_CMD}" ]; then
+  # App is not running
+  echo "No app"
+  exit 1
+fi
+
+PANE=$(tmux list-panes -a -F '#{pane_id} #{pane_current_command}' | grep "${APP}" | cut -d ' ' -f 1 | head -n 1)
+
+if [ -n "$PANE" ]; then
+    tmux send-keys -t "$PANE" C-t q
+else
+  echo "No pane"
+  exit 2
+fi
+
+echo "${PANE};${APP_CMD}"

@@ -6,8 +6,8 @@
 #include <zephyr/logging/log.h>
 #include <zephyr/settings/settings.h>
 
-#include <hei/settings.h>
 #include <hei/fuel_gauge.h>
+#include <it8951/it8951.hpp>
 
 #include <esp_sleep.h>
 
@@ -19,30 +19,6 @@ struct config {
 };
 
 static config cfg = {.valid = false, .counter = 0};
-
-static const struct gpio_dt_spec led_gpio = GPIO_DT_SPEC_GET(DT_NODELABEL(led), gpios);
-
-bool led_init() {
-   if (!device_is_ready(led_gpio.port)) {
-      LOG_ERR("LED GPIO device isn't ready");
-      return false;
-   }
-
-   int err = gpio_pin_configure_dt(&led_gpio, GPIO_OUTPUT_INACTIVE);
-   if (err) {
-      LOG_ERR("gpio_pin_configure_dt for cloud LED failed: %d", err);
-      return false;
-   }
-
-   return true;
-}
-
-void led_state(bool is_on) {
-   int err = gpio_pin_set_dt(&led_gpio, is_on);
-   if (err) {
-      LOG_ERR("gpio_pin_set_dt for LED failed: %d", err);
-   }
-}
 
 void light_sleep(k_timeout_t timeout) {
 #if CONFIG_PM
@@ -106,13 +82,20 @@ static int settings_set_handler(const char *name, size_t len, settings_read_cb r
 
 SETTINGS_STATIC_HANDLER_DEFINE(hei_handler, "hei", NULL, settings_set_handler, NULL, NULL);
 
-int main() {
-   LOG_DBG("Zephyr Example Application %s", CONFIG_BOARD);
-   if (!led_init()) {
-      LOG_ERR("LED Init failed");
-      return -1;
+static const struct device *const display_driver = DEVICE_DT_GET_ONE(ite_it8951);
+
+bool test_display_driver() {
+   if (!device_is_ready(display_driver)) {
+      LOG_ERR("Display not ready: %s", display_driver->name);
+      return false;
    }
 
+   it8951::read_device_info(display_driver);
+
+   return true;
+}
+
+int main() {
    if (auto err = settings_subsys_init()) {
       LOG_ERR("Settings initialization failed: %d", err);
       return -1;
@@ -128,17 +111,16 @@ int main() {
       return -1;
    }
 
-   bool is_on = true;
+   test_display_driver();
+
    while (true) {
       light_sleep(K_SECONDS(5));
-      led_state(is_on);
-      is_on = !is_on;
 
       ++cfg.counter;
       LOG_INF("Counter: %d", cfg.counter);
       hei_fuel_gauge_print();
 
-      if (cfg.counter % 5 == 0) {
+      if (cfg.counter % 500 == 0) {
          cfg.valid = true;
          if (auto err = settings_save_one("hei/settings", &cfg, sizeof(cfg))) {
             LOG_ERR("Settings save failed: %d", err);

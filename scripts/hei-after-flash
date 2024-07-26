@@ -1,0 +1,12 @@
+#!/usr/bin/env python3
+
+import sys
+import subprocess
+
+if len(sys.argv) != 3:
+    sys.exit(1)
+
+pane = sys.argv[1]
+cmd = sys.argv[2]
+
+subprocess.run(["tmux", "send-keys", "-t", pane, cmd, "Enter"])
