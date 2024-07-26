@@ -147,7 +147,6 @@ bool read_data(const it8951_config_t *cfg, std::array<std::uint16_t, Size> &data
          return false;
       }
 
-      LOG_INF("Read: %x", data[offset]);
       return true;
    };
 

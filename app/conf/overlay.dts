@@ -48,20 +48,28 @@
 	pinctrl-0 = <&spim2_custom>;
 	pinctrl-names = "default";
 
-	/* Just a dummy CS pin */
+	/* Just a dummy CS pin
+	 * The ESP32 SPI driver pulls the CS pin down only for the duration of a single transfer operation. But the IT8951
+	 * SPI protocol requires the CS line to be held down for the whole transaction. E.g.:
+	 * If you want to read some data from the IT8951 chip, you have to send the read preamble (0x1000) and then read
+	 * the response one word at a time while both waiting for the ready pin to get HIGH and signal that IT8951 is ready,
+	 * and holding the CS line down the whole time.
+	 * This won't work with ESP32 SPI, so we have to assign CS to a dummy pin and control the CS line manually.
+	 */
 	cs-gpios = <&gpio0 15 GPIO_ACTIVE_LOW>;
 
 	display: display@0 {
 		compatible = "ite,it8951";
 		status = "okay";
 		reg = <0>;
+
+		// At 8MHz the SPI clock became unstable, and the data could not be delivered reliably
 		spi-max-frequency = <DT_FREQ_M(4)>;
-		spi-hold-cs;
 
 		ready-gpios = <&gpio1 2 0>;
 		reset-gpios = <&gpio0 13 GPIO_ACTIVE_LOW>;
 		cs-gpios = <&gpio0 26 GPIO_ACTIVE_LOW>;
-		vcom = <1710>;
+		vcom = <1710>; // As printed on the connector (-1.71V -> 1710mV)
 	};
 };
 
