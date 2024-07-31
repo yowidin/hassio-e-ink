@@ -5,5 +5,11 @@ zephyr_include_directories(include/public)
 
 zephyr_library_sources(
         src/it8951.cpp
-        src/driver.c
+        src/hal.cpp
+        src/driver.cpp
+        src/error.cpp
+        src/util.cpp
+        src/image.cpp
+
+        src/init.c
 )

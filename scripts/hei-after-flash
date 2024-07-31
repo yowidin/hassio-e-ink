@@ -2,11 +2,15 @@
 
 import sys
 import subprocess
+from time import sleep
 
 if len(sys.argv) != 3:
     sys.exit(1)
 
 pane = sys.argv[1]
 cmd = sys.argv[2]
+
+subprocess.run(["tmux", "send-keys", "-t", pane, "Enter"])  # In case we are scrolling around right now
+sleep(0.1)
 
 subprocess.run(["tmux", "send-keys", "-t", pane, cmd, "Enter"])

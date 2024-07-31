@@ -6,10 +6,14 @@
 
 #pragma once
 
+#include <array>
+#include <cstdint>
+#include <optional>
+
 #include <zephyr/device.h>
 
 namespace it8951 {
 
-void read_device_info(const device *dev);
+void display_dummy_image(const device &dev);
 
 } // namespace it8951

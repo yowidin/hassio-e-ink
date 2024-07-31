@@ -11,6 +11,8 @@
 
 #include <esp_sleep.h>
 
+#include <exception>
+
 LOG_MODULE_REGISTER(main, CONFIG_APP_LOG_LEVEL);
 
 struct config {
@@ -90,7 +92,12 @@ bool test_display_driver() {
       return false;
    }
 
-   it8951::read_device_info(display_driver);
+   try {
+      it8951::display_dummy_image(*display_driver);
+   } catch (const std::exception &e) {
+      LOG_ERR("Display image failed: %s", e.what());
+      return false;
+   }
 
    return true;
 }
@@ -108,7 +115,6 @@ int main() {
 
    if (!hei_fuel_gauge_init()) {
       LOG_ERR("Fuel gauge init failed");
-      return -1;
    }
 
    test_display_driver();

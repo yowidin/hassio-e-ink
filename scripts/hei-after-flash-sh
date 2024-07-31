@@ -1,6 +1,0 @@
-#!/bin/bash
-
-PANE=$1
-CMD=$2
-
-tmux send-keys -t "${PANE}" "${CMD}" Enter

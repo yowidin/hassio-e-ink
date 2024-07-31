@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from time import sleep
 
 import psutil
 import subprocess
@@ -27,6 +28,9 @@ for line in tmux_output.splitlines():
         break
 
 if pane:
+    subprocess.run(["tmux", "send-keys", "-t", pane, "Enter"])  # In case we are scrolling around right now
+    sleep(0.1)
+
     subprocess.run(["tmux", "send-keys", "-t", pane, "C-t", "q"])
 else:
     print("No pane")

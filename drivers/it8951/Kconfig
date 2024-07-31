@@ -2,7 +2,7 @@ config EPD_IT8951
 	bool "ITE IT8951 Driver"
 	default y
 	depends on DT_HAS_ITE_IT8951_ENABLED
-	depends on SPI
+	depends on SPI && EVENTS && CPP && STD_CPP20 && REQUIRES_FULL_LIBCPP
 	help
 	  Enable IT8951 driver for electronic paper displays
 
@@ -15,6 +15,25 @@ if EPD_IT8951
           Device driver initialization priority.
           Device is connected to SPI bus, it has to
           be initialized after SPI driver.
+
+    config EPD_READY_LINE_TIMEOUT
+        int "Ready line timeout (in milliseconds)"
+        default 10000
+        help
+          A host is required to wait for the RDY line between reads and writes.
+          This timeout controls how long (in milliseconds are we allowed to wait).
+
+    config EPD_DISPLAY_READY_TIMEOUT
+        int "Display ready timeout (in milliseconds)"
+        default 10000
+
+    config EPD_BURST_WRITE_BUFFER_SIZE
+        int "Burst-write buffer size in bytes"
+        default 200
+        help
+          Writing pixels may take a long time if the write operations are not optimized.
+          Pick this value carefully: if it is too big the IT8951 might stop working (because we only check the
+          ready pin once before writing).
 
     module = IT8951
     module-dep = LOG
