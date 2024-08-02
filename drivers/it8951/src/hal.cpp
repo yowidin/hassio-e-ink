@@ -189,8 +189,7 @@ void write_data(const device &dev, const_span_t data) {
 }
 
 void write_register(const device &dev, reg_t reg, std::uint16_t value) {
-   write_command(dev, it8951::command_t::register_write);
-   write_data(dev, {{u16(reg), value}});
+   write_command(dev, it8951::command_t::register_write, {{u16(reg), value}});
 }
 
 void read_data(const device &dev, span_t data) {
@@ -200,8 +199,7 @@ void read_data(const device &dev, span_t data) {
 }
 
 std::uint16_t read_register(const device &dev, reg_t reg) {
-   write_command(dev, it8951::command_t::register_read);
-   write_data(dev, {{u16(reg)}});
+   write_command(dev, it8951::command_t::register_read, {{u16(reg)}});
 
    std::array<std::uint16_t, 1> result{};
    read_data(dev, result);
@@ -216,8 +214,7 @@ void enable_packed_mode(const device &dev) {
 namespace vcom {
 
 std::uint16_t get(const device &dev) {
-   write_command(dev, command_t::set_vcom);
-   write_data(dev, {{u16(0)}});
+   write_command(dev, command_t::set_vcom, {{u16(0)}});
 
    std::array<std::uint16_t, 1> result{};
    read_data(dev, result);
@@ -226,15 +223,33 @@ std::uint16_t get(const device &dev) {
 }
 
 void set(const device &dev, std::uint16_t value) {
-   write_command(dev, command_t::set_vcom);
-   write_data(dev, {{u16(1), value}});
+   write_command(dev, command_t::set_vcom, {{u16(1), value}});
 }
 
 } // namespace vcom
 
+namespace system {
+
+void run(const device &dev) {
+   write_command(dev, command_t::run);
+}
+
+void sleep(const device &dev) {
+   write_command(dev, command_t::sleep);
+}
+
+void power(const device &dev, bool is_on) {
+   write_command(dev, command_t::epd_power, {{u16(is_on ? 1 : 0)}});
+}
+
+} // namespace system
+
 void fill_screen(const device &dev,
                  const std::function<std::uint8_t(std::uint16_t, std::uint16_t)> &generator,
                  waveform_mode_t mode) {
+   system::power(dev, true);
+   system::run(dev);
+
    wait_for_display_ready(dev);
    set_image_buffer_base_address(dev);
 
@@ -271,12 +286,12 @@ void fill_screen(const device &dev,
       spi::write(get_config(dev).spi, tx_buf_set);
    };
 
-   for (uint16_t y = 0; y < data.info.panel_height; ++y) {
-      for (uint16_t x = 0; x < data.info.panel_width; x += buf.size()) {
-         const auto remainder = std::min<std::size_t>(data.info.panel_width - x, buf.size());
-         std::generate(std::begin(buf), std::end(buf), [&]() {
-            return generator(x, y);
-         });
+   for (std::uint16_t y = 0; y < data.info.panel_height; ++y) {
+      for (std::uint16_t start = 0; start < data.info.panel_width; start += buf.size()) {
+         const auto remainder = std::min<std::size_t>(data.info.panel_width - start, buf.size());
+         for (std::uint16_t x = 0; x < remainder; ++x) {
+            buf[x] = generator(start + x, y);
+         }
          burst_write_pixels(remainder);
       }
    }
@@ -284,6 +299,9 @@ void fill_screen(const device &dev,
    load_image_end(dev);
 
    display_area(dev, area, mode);
+
+   system::sleep(dev);
+   system::power(dev, false);
 }
 
 } // namespace it8951::hal

@@ -64,7 +64,7 @@
 		reg = <0>;
 
 		// At 8MHz the SPI clock became unstable, and the data could not be delivered reliably
-		spi-max-frequency = <DT_FREQ_M(4)>;
+		spi-max-frequency = <DT_FREQ_M(2)>;
 
 		ready-gpios = <&gpio1 2 0>;
 		reset-gpios = <&gpio0 13 GPIO_ACTIVE_LOW>;

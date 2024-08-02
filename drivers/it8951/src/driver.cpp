@@ -82,9 +82,12 @@ void setup_ready_pin(const struct device &dev) {
 }
 
 void reset(const it8951_config_t &cfg) {
-   pin::set(cfg.reset_pin, true);
-   k_sleep(K_MSEC(100));
    pin::set(cfg.reset_pin, false);
+   k_sleep(K_MSEC(200));
+   pin::set(cfg.reset_pin, true);
+   k_sleep(K_MSEC(10));
+   pin::set(cfg.reset_pin, false);
+   k_sleep(K_MSEC(200));
 }
 
 void read_device_info(const struct device &dev, it8951_device_info_t &info) {
@@ -128,6 +131,8 @@ void try_init(const struct device &dev) {
    }
 
    reset(cfg);
+
+   hal::system::run(dev);
 
    auto &info = data.info;
    read_device_info(dev, info);
