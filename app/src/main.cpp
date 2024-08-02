@@ -9,8 +9,6 @@
 #include <hei/fuel_gauge.h>
 #include <it8951/it8951.hpp>
 
-#include <esp_sleep.h>
-
 #include <exception>
 
 LOG_MODULE_REGISTER(main, CONFIG_APP_LOG_LEVEL);
@@ -21,47 +19,6 @@ struct config {
 };
 
 static config cfg = {.valid = false, .counter = 0};
-
-void light_sleep(k_timeout_t timeout) {
-#if CONFIG_PM
-   while (true) {
-      if (K_TIMEOUT_EQ(timeout, K_NO_WAIT)) {
-         return;
-      }
-
-      const auto min_residency_us = DT_PROP(DT_NODELABEL(light_sleep), min_residency_us);
-      const auto sleep_us = k_ticks_to_us_ceil64(timeout.ticks);
-      if (sleep_us < min_residency_us) {
-         // No point in starting the light sleep: the sleep duration is smaller than the minimal sleep amount required
-         // for a light sleep.
-         k_sleep(timeout);
-         return;
-      }
-
-      if (auto err = esp_sleep_enable_timer_wakeup(sleep_us) != ESP_OK) {
-         LOG_ERR("Timer wake up setup failed: %d", err);
-      }
-
-      // Actual sleep
-      const auto ticks_before = k_uptime_ticks();
-      const auto extra_sleep_overhead = 50;
-      k_sleep(K_USEC(min_residency_us + extra_sleep_overhead));
-
-      // Handle spurious wake-ups
-      const auto ticks_after = k_uptime_ticks();
-      const auto ticks_delta = ticks_after - ticks_before;
-      const auto actual_us = k_ticks_to_us_ceil64(ticks_delta);
-
-      if (actual_us >= sleep_us) {
-         break;
-      }
-
-      timeout = K_USEC(sleep_us - actual_us);
-   }
-#else
-   k_sleep(timeout);
-#endif
-}
 
 static int settings_set_handler(const char *name, size_t len, settings_read_cb read_cb, void *cb_arg) {
    const char *next;
@@ -120,7 +77,7 @@ int main() {
    test_display_driver();
 
    while (true) {
-      light_sleep(K_SECONDS(5));
+      k_sleep(K_SECONDS(5));
 
       ++cfg.counter;
       LOG_INF("Counter: %d", cfg.counter);
