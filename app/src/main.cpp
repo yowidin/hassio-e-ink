@@ -4,42 +4,15 @@
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
-#include <zephyr/settings/settings.h>
 
 #include <hei/fuel_gauge.h>
+#include <hei/settings.hpp>
+
 #include <it8951/it8951.hpp>
 
 #include <exception>
 
 LOG_MODULE_REGISTER(main, CONFIG_APP_LOG_LEVEL);
-
-struct config {
-   bool valid;
-   int counter;
-};
-
-static config cfg = {.valid = false, .counter = 0};
-
-static int settings_set_handler(const char *name, size_t len, settings_read_cb read_cb, void *cb_arg) {
-   const char *next;
-   if (settings_name_steq(name, "settings", &next) && !next) {
-      if (len != sizeof(config)) {
-         return -EINVAL;
-      }
-
-      int rc = read_cb(cb_arg, &cfg, sizeof(config));
-      if (rc >= 0) {
-         LOG_INF("Restored settings: %d / %d", cfg.valid, cfg.counter);
-         return 0;
-      }
-
-      return rc;
-   }
-
-   return 0;
-}
-
-SETTINGS_STATIC_HANDLER_DEFINE(hei_handler, "hei", NULL, settings_set_handler, NULL, NULL);
 
 static const struct device *const display_driver = DEVICE_DT_GET_ONE(ite_it8951);
 
@@ -60,37 +33,23 @@ bool test_display_driver() {
 }
 
 int main() {
-   if (auto err = settings_subsys_init()) {
-      LOG_ERR("Settings initialization failed: %d", err);
-      return -1;
-   }
-
-   if (auto err = settings_load_subtree("hei")) {
-      LOG_ERR("Settings load failed: %d", err);
-      return -1;
-   }
-
    if (!hei_fuel_gauge_init()) {
       LOG_ERR("Fuel gauge init failed");
    }
 
-   test_display_driver();
+   if (hei::settings::configured()) {
+      LOG_INF("Application is fully configured");
+   } else {
+      LOG_WRN("Application is not configured");
+   }
 
+   // test_display_driver();
+
+   int counter = 0;
    while (true) {
       k_sleep(K_SECONDS(5));
 
-      ++cfg.counter;
-      LOG_INF("Counter: %d", cfg.counter);
+      LOG_INF("Counter: %d", counter++);
       hei_fuel_gauge_print();
-
-      if (cfg.counter % 500 == 0) {
-         cfg.valid = true;
-         if (auto err = settings_save_one("hei/settings", &cfg, sizeof(cfg))) {
-            LOG_ERR("Settings save failed: %d", err);
-            return -1;
-         } else {
-            LOG_DBG("Saved settings: %d", cfg.counter);
-         }
-      }
    }
 }
