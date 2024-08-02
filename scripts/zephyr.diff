@@ -1,13 +1,15 @@
 diff --git a/scripts/west_commands/runners/esp32.py b/scripts/west_commands/runners/esp32.py
-index 0ccf0c98d1f..7017b0944d3 100644
+index b68ddd9b2f7..5fd3fa40ace 100644
 --- a/scripts/west_commands/runners/esp32.py
 +++ b/scripts/west_commands/runners/esp32.py
-@@ -100,6 +100,19 @@ class Esp32BinaryRunner(ZephyrBinaryRunner):
+@@ -100,6 +100,21 @@ class Esp32BinaryRunner(ZephyrBinaryRunner):
              no_stub=args.esp_no_stub)
  
      def do_run(self, command, **kwargs):
 +        # Close tio connection
 +        import subprocess
++        pane_id = None
++        tio_command = None
 +        try:
 +            # Run the command and capture the output
 +            output = self.check_output('hei-before-flash', shell=True, text=True)
@@ -22,7 +24,7 @@ index 0ccf0c98d1f..7017b0944d3 100644
          self.require(self.espidf)
  
          # Add Python interpreter
-@@ -132,3 +145,7 @@ class Esp32BinaryRunner(ZephyrBinaryRunner):
+@@ -132,3 +147,7 @@ class Esp32BinaryRunner(ZephyrBinaryRunner):
          self.logger.info("Flashing esp32 chip on {} ({}bps)".
                           format(self.device, self.baud))
          self.check_call(cmd_flash)
