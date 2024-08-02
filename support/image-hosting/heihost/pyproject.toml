@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=45", "wheel", "setuptools_scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "heihost"
+dynamic = ["version"]
+description = "A tool for fetching PNG images and hosting PGM images for the Hassio E-Ink Display"
+requires-python = ">=3.6"
+dependencies = [
+    "Pillow",
+    "numpy",
+]
+
+[project.scripts]
+png_to_pgm = "heihost.converter:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+addopts = "-v"
