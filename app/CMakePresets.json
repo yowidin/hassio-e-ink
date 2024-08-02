@@ -14,7 +14,7 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "ZDebug",
         "ZEPHYR_TOOLCHAIN_VARIANT": "zephyr",
-        "BOARD": "esp32_devkitc_wroom",
+        "BOARD": "esp32_devkitc_wroom/esp32/procpu" ,
         "DTC_OVERLAY_FILE": "${sourceDir}/conf/overlay.dts"
       }
     },
