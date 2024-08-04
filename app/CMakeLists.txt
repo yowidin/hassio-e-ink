@@ -10,4 +10,5 @@ target_sources(app PRIVATE
         src/fuel_gauge.c
         src/settings.cpp
         src/shell.c
+        src/wifi.cpp
 )

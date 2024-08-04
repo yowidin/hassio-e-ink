@@ -7,20 +7,29 @@
 #pragma once
 
 #include <array>
+#include <chrono>
 #include <cstdint>
 #include <optional>
 #include <span>
-#include <chrono>
 
 namespace hei::settings {
 
 using span_t = std::span<char, std::dynamic_extent>;
+using const_span_t = std::span<const char, std::dynamic_extent>;
 using optional_span_t = std::optional<span_t>;
 
 namespace wifi {
 
 optional_span_t ssid();
 optional_span_t password();
+std::optional<std::uint8_t> security();
+
+namespace ap {
+
+span_t ssid();
+span_t password();
+
+} // namespace ap
 
 } // namespace wifi
 

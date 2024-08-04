@@ -4,9 +4,11 @@
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
+#include <zephyr/sys/reboot.h>
 
 #include <hei/fuel_gauge.h>
 #include <hei/settings.hpp>
+#include <hei/wifi.hpp>
 
 #include <it8951/it8951.hpp>
 
@@ -32,16 +34,33 @@ bool test_display_driver() {
    return true;
 }
 
+void fatal_error(const char *msg) {
+   LOG_ERR("Fatal error: %s", msg);
+
+   for (int i = 0; i < 12; ++i) {
+      // TODO: toggle LED
+      k_sleep(K_SECONDS(5));
+   }
+
+   sys_reboot(SYS_REBOOT_COLD);
+}
+
+void setup_connectivity() {
+   try {
+      hei::wifi::setup();
+   } catch (const std::exception &e) {
+      // Neither connection nor AP could work: we can't to anything: go into error mode
+      LOG_ERR("Wi-Fi setup error: %s", e.what());
+      fatal_error("Wi-Fi configuration failed");
+   }
+}
+
 int main() {
    if (!hei_fuel_gauge_init()) {
       LOG_ERR("Fuel gauge init failed");
    }
 
-   if (hei::settings::configured()) {
-      LOG_INF("Application is fully configured");
-   } else {
-      LOG_WRN("Application is not configured");
-   }
+   setup_connectivity();
 
    // test_display_driver();
 

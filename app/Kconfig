@@ -2,6 +2,18 @@ menu "Zephyr"
     source "Kconfig.zephyr"
 endmenu
 
+config APP_WIFI_CONNECTION_TIMEOUT
+    int "Wi-Fi connection timeout in seconds"
+    default 30
+
+config APP_WIFI_AP_SSID
+    string "Default Wi-Fi access point SSID"
+    default "HeiAP"
+
+config APP_WIFI_AP_PASSWORD
+    string "Default Wi-Fi Access Point password"
+    default "HeiPassword"
+
 module = APP
 module-str = APP
 source "subsys/logging/Kconfig.template.log_config"
