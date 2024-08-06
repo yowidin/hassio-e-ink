@@ -10,6 +10,8 @@
 #include <zephyr/net/net_event.h>
 #include <zephyr/net/net_mgmt.h>
 #include <zephyr/net/wifi_mgmt.h>
+#include <zephyr/net/net_config.h>
+#include <zephyr/net/dhcpv4_server.h>
 
 #include <zephyr/logging/log.h>
 
@@ -98,8 +100,14 @@ void wifi_mgmt_event_handler(struct net_mgmt_event_callback *cb, uint32_t mgmt_e
          break;
 
       case NET_EVENT_IPV4_ADDR_ADD:
+         LOG_DBG("Got IP address");
          print_ipv4_addresses(*iface);
          k_event_set(&wifi::state, wifi::event::ipv4_assigned);
+         break;
+
+      case NET_EVENT_L4_CONNECTED:
+         LOG_DBG("L4 connected");
+         print_ipv4_addresses(*iface);
          break;
 
       default:
@@ -164,8 +172,21 @@ void configure_ap_ip(net_if &iface) {
       return;
    }
 
-   net_if_ipv4_addr_add(&iface, &addr, NET_ADDR_OVERRIDABLE, 0);
+   net_if_ipv4_addr_add(&iface, &addr, NET_ADDR_MANUAL, 0);
    net_if_ipv4_set_netmask_by_addr(&iface, &addr, &netmask);
+}
+
+void configure_dhcp_server(net_if &iface) {
+   in_addr addr{};
+   const char *address = "192.168.0.100";
+   if (net_addr_pton(AF_INET, address, &addr)) {
+      LOG_ERR("Invalid address: %s", address);
+      return;
+   }
+
+   if (auto err = net_dhcpv4_server_start(&iface, &addr)) {
+      LOG_ERR("DHCP server start error: %d", err);
+   }
 }
 
 void host(net_if &iface) {
@@ -195,7 +216,11 @@ void host(net_if &iface) {
 
    // ESP32 doesn't generate AP-related events, so we can only hope that everything works
    LOG_INF("Hosting \"%s\" network", ssid.data());
+
    configure_ap_ip(iface);
+
+   // TODO: Wait for L4 event
+   // configure_dhcp_server(iface);
 
    print_ipv4_addresses(iface);
 }
@@ -209,7 +234,7 @@ void setup() {
                                 NET_EVENT_WIFI_CONNECT_RESULT | NET_EVENT_WIFI_DISCONNECT_RESULT);
    net_mgmt_add_event_callback(&wifi_cb);
 
-   net_mgmt_init_event_callback(&ipv4_cb, wifi_mgmt_event_handler, NET_EVENT_IPV4_ADDR_ADD);
+   net_mgmt_init_event_callback(&ipv4_cb, wifi_mgmt_event_handler, NET_EVENT_IPV4_ADDR_ADD | NET_EVENT_L4_CONNECTED);
    net_mgmt_add_event_callback(&ipv4_cb);
 
    net_if *iface = net_if_get_default();
@@ -218,6 +243,7 @@ void setup() {
       throw_system_error(std::errc::no_such_device);
    }
 
+#if 0
    if (hei::settings::configured()) {
       try {
          LOG_DBG("Application is fully configured, trying to connect");
@@ -228,6 +254,7 @@ void setup() {
          // Connect failed, continue with AP setup
       }
    }
+#endif
 
    LOG_DBG("Trying to host");
    host(*iface);

@@ -7,18 +7,23 @@
 #include <zephyr/sys/reboot.h>
 
 #include <hei/fuel_gauge.h>
-#include <hei/settings.hpp>
 #include <hei/wifi.hpp>
+#include <hei/server.hpp>
 
+#if CONFIG_EPD_IT8951
 #include <it8951/it8951.hpp>
+#endif
 
 #include <exception>
 
 LOG_MODULE_REGISTER(main, CONFIG_APP_LOG_LEVEL);
 
+#if CONFIG_EPD_IT8951
 static const struct device *const display_driver = DEVICE_DT_GET_ONE(ite_it8951);
+#endif
 
 bool test_display_driver() {
+#if CONFIG_EPD_IT8951
    if (!device_is_ready(display_driver)) {
       LOG_ERR("Display not ready: %s", display_driver->name);
       return false;
@@ -30,6 +35,7 @@ bool test_display_driver() {
       LOG_ERR("Display image failed: %s", e.what());
       return false;
    }
+#endif
 
    return true;
 }
@@ -61,6 +67,10 @@ int main() {
    }
 
    setup_connectivity();
+
+   k_sleep(K_MSEC(500));
+
+   hei::server::start();
 
    // test_display_driver();
 
