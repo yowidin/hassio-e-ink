@@ -6,6 +6,10 @@ config APP_WIFI_CONNECTION_TIMEOUT
     int "Wi-Fi connection timeout in seconds"
     default 30
 
+config APP_WIFI_CONNECTION_ATTEMPTS
+    int "Number of Wi-Fi connection attempts"
+    default 3
+
 config APP_WIFI_AP_SSID
     string "Default Wi-Fi access point SSID"
     default "HeiAP"
