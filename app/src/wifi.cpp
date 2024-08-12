@@ -4,6 +4,7 @@
  * @date   Aug. 02, 2024
  */
 
+#include <hei/dns.hpp>
 #include <hei/settings.hpp>
 #include <hei/wifi.hpp>
 
@@ -270,6 +271,8 @@ private:
       LOG_INF("Configuring host network");
       configure_dhcp_server();
       print_ipv4_addresses();
+
+      hei::dns::server::start();
    }
 
    void configure_ap_ip() {

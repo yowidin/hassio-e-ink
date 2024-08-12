@@ -18,6 +18,18 @@ config APP_WIFI_AP_PASSWORD
     string "Default Wi-Fi Access Point password"
     default "HeiPassword"
 
+config APP_DNS_SERVER
+    bool "DNS server support"
+    default n
+
+config APP_DNS_SERVER_STACK_SIZE
+    int "Stack size of the dummy DNS server thread"
+    default 1024
+
+config APP_DNS_SERVER_THREAD_PRIORITY
+    int "Thread priority of the dummy DNS server thread"
+    default 7
+
 module = APP
 module-str = APP
 source "subsys/logging/Kconfig.template.log_config"
