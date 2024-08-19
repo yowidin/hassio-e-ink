@@ -7,33 +7,58 @@ import sys
 
 APP = "tio"
 
-# Get the command for the running app
-app_cmd = None
-for proc in psutil.process_iter(['name', 'cmdline']):
-    if proc.info['name'] == APP:
-        app_cmd = ' '.join(proc.info['cmdline'])
-        break
 
-if not app_cmd:
-    print("No app")
-    sys.exit(1)
+def get_tmux_panes():
+    cmd = ["tmux", "list-panes", "-a", "-F", "#{pane_id} #{pane_current_command} #{pane_pid}"]
+    output = subprocess.check_output(cmd).decode('utf-8')
+    return [line.split() for line in output.strip().split('\n')]
 
-# Get the tmux pane ID
-tmux_output = subprocess.run(["tmux", "list-panes", "-a", "-F", "#{pane_id} #{pane_current_command}"],
-                             capture_output=True, text=True).stdout
-pane = None
-for line in tmux_output.splitlines():
-    if APP in line:
-        pane = line.split()[0]
-        break
 
-if pane:
-    subprocess.run(["tmux", "send-keys", "-t", pane, "Enter"])  # In case we are scrolling around right now
+def find_tio_pid(panes):
+    for pane_id, command, pid in panes:
+        if command != APP:
+            continue
+
+        shell_process = psutil.Process(int(pid))
+
+        for child in shell_process.children(recursive=True):
+            if child.name() == APP:
+                return pane_id, child.pid
+
+    return None, None
+
+
+def get_tio_arguments(tio_pid):
+    for proc in psutil.process_iter(['name', 'cmdline']):
+        if proc.pid == tio_pid:
+            return ' '.join(proc.info['cmdline'])
+
+    return None
+
+
+def stop_tio(pane_id):
+    subprocess.run(["tmux", "send-keys", "-t", pane_id, "Enter"])  # In case we are scrolling around right now
     sleep(0.1)
+    subprocess.run(["tmux", "send-keys", "-t", pane_id, "C-t", "q"])
 
-    subprocess.run(["tmux", "send-keys", "-t", pane, "C-t", "q"])
-else:
-    print("No pane")
-    sys.exit(2)
 
-print(f"{pane};{app_cmd}")
+def main():
+    panes = get_tmux_panes()
+    if len(panes) == 0:
+        sys.exit("No tmux panes found")
+
+    pane_id, tio_pid = find_tio_pid(panes)
+    if tio_pid is None or pane_id is None:
+        sys.exit("No tio process found")
+
+    tio_cmd = get_tio_arguments(tio_pid)
+    if not tio_cmd:
+        sys.exit("Could not get tio arguments")
+
+    stop_tio(pane_id)
+
+    print(f"{pane_id};{tio_cmd}")
+
+
+if __name__ == '__main__':
+    main()
