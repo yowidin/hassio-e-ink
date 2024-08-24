@@ -1,10 +1,78 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Zephyr HTTP Server</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <link href="./bootstrap.min.css" rel="stylesheet">
+
+    <title>Hassio E-Ink</title>
 </head>
+
 <body>
-    <h1>Welcome to Zephyr HTTP Server!</h1>
-    <p>This is a simple HTML file.</p>
+<div class="container text-center">
+    <div class="row justify-content-md-center">
+        <div class="vstack gap-3">
+            <h1 id="titleLabel">Home Assistant E-Ink</h1>
+
+            <!-- State -->
+            <div class="container text-center">
+                <div class="list-group">
+                    <div class="list-group-item d-flex w-100 justify-content-between">
+                        <label>MAC</label>
+                        <label id="macLabel">[unknown]</label>
+                    </div>
+
+                    <div class="list-group-item d-flex w-100 justify-content-between">
+                        <label>Hosting</label>
+                        <label id="hostingLabel">[unknown]</label>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script src="./bootstrap.bundle.min.js"></script>
+<script>
+    async function postData(method, payload = {}) {
+        let host = window.location.host;
+        let fullPath = `http://${host}/${method}`;
+        console.log(`Fetching ${fullPath}`);
+
+        const response = await fetch(fullPath, {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify(payload),
+        });
+
+        if (response.ok) {
+            return response.json();
+        } else {
+            return null;
+        }
+    }
+
+    function updateCurrentState(mac, isHosting) {
+        document.getElementById("macLabel").innerHTML = mac;
+        document.getElementById("hostingLabel").innerHTML = isHosting;
+    }
+
+    function getCurrentState() {
+        postData("status").then((data) => {
+            if (data === null) {
+                return;
+            }
+
+            let mac = data["mac_address"];
+            let isHosting = data["is_hosting"];
+            updateCurrentState(mac, isHosting);
+        });
+    }
+
+    getCurrentState();
+</script>
+
 </body>
 </html>

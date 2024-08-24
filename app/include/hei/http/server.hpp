@@ -6,8 +6,8 @@
 
 #pragma once
 
-namespace hei::server {
+namespace hei::http::server {
 
 void start();
 
-} // namespace hei::server
+} // namespace hei::http::server

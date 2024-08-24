@@ -8,7 +8,7 @@
 
 #include <hei/fuel_gauge.h>
 #include <hei/wifi.hpp>
-#include <hei/server.hpp>
+#include <hei/http/server.hpp>
 
 #if CONFIG_EPD_IT8951
 #include <it8951/it8951.hpp>
@@ -70,7 +70,7 @@ int main() {
 
    k_sleep(K_MSEC(500));
 
-   hei::server::start();
+   hei::http::server::start();
 
    // test_display_driver();
 

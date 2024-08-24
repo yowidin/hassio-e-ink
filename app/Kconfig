@@ -30,6 +30,18 @@ config APP_DNS_SERVER_THREAD_PRIORITY
     int "Thread priority of the dummy DNS server thread"
     default 7
 
+config APP_NETWORK_SCAN_INTERVAL
+    int "Periodic network scan interval in seconds"
+    default 30
+
+config APP_NETWORK_SCAN_DURATION
+    int "Periodic network scan duration in seconds"
+    default 5
+
+config APP_NETWORK_SCAN_MAX_RESULTS
+    int "Maximal number of networks to return during a scan"
+    default 10
+
 module = APP
 module-str = APP
 source "subsys/logging/Kconfig.template.log_config"
