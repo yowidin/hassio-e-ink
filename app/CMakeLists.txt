@@ -31,7 +31,9 @@ set(HEI_RES_FILES
     bootstrap.min.css
 )
 foreach(res_file ${HEI_RES_FILES})
-    generate_inc_file_for_target(app res/${res_file} ${HEI_GENERATED_INCLUDE_DIR}/http/static/${res_file}.gz.inc --gzip)
+    generate_inc_file_for_target(app
+        res/static/${res_file}
+        ${HEI_GENERATED_INCLUDE_DIR}/http/static/${res_file}.gz.inc --gzip)
 endforeach()
 
 target_include_directories(app PRIVATE ${HEI_GENERATED_DIR})

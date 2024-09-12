@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Hassio E-Ink</title>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <link href="./bootstrap.min.css" rel="stylesheet">
+
+    <!-- Arrow icon to represent collapsable items -->
+    <style>
+        /* Rotate the caret when the section is expanded */
+        .rotate-icon.collapsed::before {
+            transform: rotate(-90deg);
+        }
+
+        .rotate-icon::before {
+            content: '\25BC'; /* Downward arrow */
+            display: inline-block;
+            margin-right: 10px;
+            transform: rotate(0deg); /* Initially rotated to point right */
+            transition: transform 0.3s ease-in-out;
+        }
+    </style>
+</head>
+
+<body>
+<div class="container text-center">
+    <div class="row justify-content-md-center">
+        <div class="vstack gap-3">
+            <h1 class="text-primary" id="titleLabel">Home Assistant E-Ink</h1>
+
+            <!-- State -->
+            <div id="stateContainer" class="container text-center">
+                <div class="d-grid gap-2 col-xl-6 mx-auto">
+                    <h2 class="text-primary">Status</h2>
+
+                    <div class="list-group">
+                        <div class="list-group-item d-flex w-100 justify-content-between">
+                            <label>MAC</label>
+                            <label id="macLabel">[unknown]</label>
+                        </div>
+
+                        <div class="list-group-item d-flex w-100 justify-content-between">
+                            <label>Hosting</label>
+                            <label id="hostingLabel">[unknown]</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Network List -->
+            <div id="networkListContainer" class="invisible mt-4">
+                <!-- Collapsable network List -->
+                <h2 id="networksHeader" class="rotate-icon text-primary collapsed" data-bs-toggle="collapse"
+                    data-bs-target="#networkList" aria-expanded="false" aria-controls="networkList"
+                    style="cursor: pointer;">Network List</h2>
+                <div class="d-grid gap-2 col-xl-6 mx-auto">
+                    <div id="networkList" class="collapse container text-center"></div>
+                </div>
+            </div>
+
+            <!-- Wi-Fi settings -->
+            <form class="needs-validation" id="formWiFiSettings" novalidate>
+                <div id="wiFiSettingsContainer" class="mt-4">
+                    <!-- Collapsable Wi-Fi Settings -->
+                    <h2 id="wiFiSettingsHeader" class="rotate-icon text-primary collapsed" data-bs-toggle="collapse"
+                        data-bs-target="#wiFiSettings" aria-expanded="false" aria-controls="wiFiSettings"
+                        style="cursor: pointer;">Wi-Fi Settings</h2>
+                    <div id="wiFiSettings" class="collapse container text-center">
+                        <div id="wiFiSettingsForm" class="d-grid gap-2 col-xl-6 mx-auto">
+                            <div class="form-floating mb-3">
+                                <input class="form-control" id="inputWiFiName" placeholder="SSID">
+                                <label for="inputWiFiName">SSID <span class="text-danger">*</span></label>
+                                <div class="invalid-feedback">SSID is required</div>
+                            </div>
+
+                            <div class="form-floating mb-3">
+                                <select class="form-select" id="inputWiFiSecurityType" aria-label="Wi-Fi Security Type">
+                                    <option value="OPEN">OPEN</option>
+                                    <option value="WEP">WEP</option>
+                                    <option value="WPA-PSK">WPA-PSK</option>
+                                    <option value="WPA2-PSK">WPA2-PSK</option>
+                                    <option value="WPA2-PSK-SHA256">WPA2-PSK-SHA256</option>
+                                    <option value="WPA3-SAE">WPA3-SAE</option>
+                                    <option value="WAPI">WAPI</option>
+                                    <option value="EAP">EAP</option>
+                                </select>
+                                <label for="inputWiFiSecurityType">Wi-Fi Security Type</label>
+                            </div>
+
+                            <div class="form-floating mb-3">
+                                <input type="password" class="form-control" id="inputWiFiPassword"
+                                       placeholder="Password">
+                                <label for="inputWiFiPassword">Password</label>
+                            </div>
+
+                            <button class="btn btn-primary" type="submit" onclick="doConnect(event)">Connect</button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+
+            <!-- Image Server settings -->
+            <form class="needs-validation" id="formImageServer" novalidate>
+                <div id="imageServerSettingsContainer" class="mt-4">
+                    <!-- Collapsable Image Server Settings -->
+                    <h2 id="imageServerSettingsHeader" class="rotate-icon text-primary collapsed"
+                        data-bs-toggle="collapse"
+                        data-bs-target="#imageServerSettings" aria-expanded="false" aria-controls="imageServerSettings"
+                        style="cursor: pointer;">Image Server Settings</h2>
+                    <div id="imageServerSettings" class="collapse container text-center">
+                        <div id="imageServerSettingsForm" class="d-grid gap-2 col-xl-6 mx-auto">
+                            <div class="form-floating mb-3">
+                                <input class="form-control" id="inputImageServerAddress" placeholder="Address" required>
+                                <label for="inputImageServerAddress">Address <span class="text-danger">*</span> </label>
+                                <div id="inputImageServerAddressFeedback" class="invalid-feedback">
+                                    Please enter a valid image server address (HTTP)
+                                </div>
+                            </div>
+
+                            <div class="form-floating mb-3">
+                                <input class="form-control" id="inputImageServerPort" placeholder="Port"
+                                       type="number" required min="1" max="65535">
+                                <label for="inputImageServerPort">Port <span class="text-danger">*</span></label>
+                                <div id="inputImageServerPortFeedback" class="invalid-feedback">
+                                    Please enter a valid port number (0-65535).
+                                </div>
+                            </div>
+
+                            <div class="form-floating mb-3">
+                                <input class="form-control" id="inputImageServerRefreshInterval"
+                                       placeholder="Refresh Interval (seconds)"
+                                       type="number" required min="120" max="3600">
+                                <label for="inputImageServerRefreshInterval">Refresh Interval <span
+                                        class="text-danger">*</span></label>
+                                <div id="inputImageServerRefreshIntervalFeedback" class="invalid-feedback">
+                                    Please enter a valid refresh interval (120-3600).
+                                </div>
+                            </div>
+
+                            <button class="btn btn-primary" type="submit" onclick="doSaveImageServer(event)">Save
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+
+            <!-- Error Toast -->
+            <div class="toast-container position-fixed bottom-0 end-0 p-3">
+                <div id="errorToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+                    <div class="toast-header bg-danger text-white">
+                        <strong class="me-auto">Error</strong>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"
+                                aria-label="Close"></button>
+                    </div>
+                    <div class="toast-body">
+                        Your error message goes here.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Info Toast -->
+            <div class="toast-container position-fixed bottom-0 end-0 p-3">
+                <div id="infoToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+                    <div class="toast-header bg-success text-white">
+                        <strong class="me-auto">Info</strong>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"
+                                aria-label="Close"></button>
+                    </div>
+                    <div class="toast-body">
+                        Your info message goes here.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="./bootstrap.bundle.min.js"></script>
+<script>
+    /* global bootstrap */
+
+    let STATUS_PATH = "status";
+    let NETWORKS_PATH = "networks";
+    let WIFI_CONFIG_PATH = "wifi-config";
+    let IMAGE_SERVER_CONFIG_PATH = "image-server-config";
+
+    let PERIODIC_SCAN_INTERVAL_MS = 15000;
+
+    let titleLabel = document.getElementById("titleLabel");
+
+    let stateContainer = document.getElementById("stateContainer");
+    let macLabel = document.getElementById("macLabel");
+    let hostingLabel = document.getElementById("hostingLabel");
+
+    let networkListContainer = document.getElementById("networkListContainer");
+    let networkList = document.getElementById("networkList");
+
+    let wiFiSettingsContainer = document.getElementById('wiFiSettingsContainer');
+    let wiFiSettings = document.getElementById('wiFiSettings');
+    let inputWiFiName = document.getElementById('inputWiFiName');
+    let inputWiFiSecurityType = document.getElementById('inputWiFiSecurityType');
+    let inputWiFiPassword = document.getElementById('inputWiFiPassword');
+
+    let imageServerSettingsContainer = document.getElementById('imageServerSettingsContainer');
+    let inputImageServerAddress = document.getElementById('inputImageServerAddress')
+    let inputImageServerAddressFeedback = document.getElementById('inputImageServerAddressFeedback')
+    let inputImageServerPort = document.getElementById('inputImageServerPort')
+    let inputImageServerPortFeedback = document.getElementById('inputImageServerPortFeedback')
+    let inputImageServerRefreshInterval = document.getElementById('inputImageServerRefreshInterval')
+    let inputImageServerRefreshIntervalFeedback = document.getElementById('inputImageServerRefreshIntervalFeedback')
+
+    let activeNetwork = null;
+    let activeNetworkName = null;
+    let currentNetworkList = null;
+
+    let periodicScanId = null;
+
+    async function postData(method, payload = {}) {
+        let host = window.location.host;
+        let fullPath = `http://${host}/${method}`;
+        console.log(`Fetching ${fullPath}`);
+
+        const response = await fetch(fullPath, {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify(payload),
+        });
+
+        if (response.ok) {
+            return response.json();
+        } else {
+            return null;
+        }
+    }
+
+    /********************************************************************************
+     * Network configuration
+     ********************************************************************************/
+    function stopPeriodicScan() {
+        if (periodicScanId != null) {
+            clearInterval(periodicScanId);
+        }
+    }
+
+    function setActiveNetwork(networkName) {
+        activeNetwork = null;
+        activeNetworkName = networkName;
+        updateNetworkList();
+    }
+
+    function updateForActiveNetwork() {
+        if (activeNetwork != null) {
+            inputWiFiName.value = activeNetwork['ssid'];
+
+            inputWiFiSecurityType.value = activeNetwork['security']
+            handleSecurityTypeChange(inputWiFiSecurityType.value);
+
+            updatePasswordVisibility(true);
+        } else {
+            updatePasswordVisibility(false);
+        }
+    }
+
+    function setNetworkListVisibility(isVisible) {
+        if (isVisible) {
+            networkListContainer.classList.remove("invisible");
+        } else {
+            networkListContainer.classList.add("invisible");
+        }
+    }
+
+    function updatePasswordVisibility(isVisible) {
+        let collapseInstance = new bootstrap.Collapse(wiFiSettings, {toggle: false});
+        if (isVisible) {
+            collapseInstance.show();
+        } else {
+            // Nothing to do here, we don't want to lose the user input
+        }
+    }
+
+    function updateNetworkList() {
+        let activeFound = false;
+        let tableContents = '<div class="list-group">';
+        for (let networkEntry of currentNetworkList) {
+            let networkName = networkEntry['ssid'];
+            let rssi = `${networkEntry['rssi']} dB`;
+
+            let activeSuffix = "";
+            let activeTag = "";
+            if (networkName === activeNetworkName) {
+                activeSuffix = " active";
+                activeTag = ' aria-current="true"';
+                activeFound = true;
+
+                activeNetwork = networkEntry;
+            }
+
+            tableContents +=
+                `<a href="#" class="list-group-item list-group-item-action${activeSuffix}"${activeTag} onclick="setActiveNetwork('${networkName}')">
+     <div class="d-flex w-100 justify-content-between">
+       <small class="mb-1">${networkName}</small>
+       <small>${rssi}</small>
+     </div>
+</a>`
+        }
+        tableContents += '</div>';
+
+        if (activeFound) {
+            updateForActiveNetwork();
+        } else {
+            activeNetwork = null;
+            activeNetworkName = null;
+            updateForActiveNetwork();
+        }
+
+        networkList.innerHTML = tableContents;
+    }
+
+    function doPeriodicScan() {
+        console.log("Fetching AP data");
+        postData(NETWORKS_PATH).then((data) => {
+            if (data === null) {
+                showErrorToast("Error getting network list");
+                return;
+            }
+
+            currentNetworkList = data['networks'];
+            console.log(currentNetworkList);
+
+            updateNetworkList();
+        });
+    }
+
+    /********************************************************************************
+     * Wi-Fi configuration
+     ********************************************************************************/
+    function hideInteractiveControls() {
+        stateContainer.classList.add("invisible");
+        wiFiSettingsContainer.classList.add("invisible");
+        networkListContainer.classList.add("invisible");
+        imageServerSettingsContainer.classList.add("invisible");
+    }
+
+    function doConnect(event) {
+        // Prevent the default form submission behavior
+        event.preventDefault();
+
+        // Check if the form is valid
+        let form = document.getElementById('formWiFiSettings');
+        if (form.checkValidity()) {
+            stopPeriodicScan();
+
+            let ssid = inputWiFiName.value;
+            let password = inputWiFiPassword.value;
+            let security = inputWiFiSecurityType.value;
+            console.log(`Connecting to "${ssid}" with "${password.hash}, security: ${security}"`);
+
+            let config = {"name": ssid, "password": password, "security": security};
+            postData(WIFI_CONFIG_PATH, config).then((data) => {
+                if (data === null) {
+                    showErrorToast("Error updating the network configuration");
+                    return;
+                }
+
+                console.log(`Response: ${data}`)
+
+                if (data['result'] !== "ok") {
+                    showErrorToast(data["message"]);
+                    return;
+                }
+
+                titleLabel.innerHTML = `Please navigate to the new IP address`;
+                showInfoToast(titleLabel.innerHTML);
+                hideInteractiveControls();
+            });
+        } else {
+            // Show validation errors
+            console.log('Form validation failed');
+            form.classList.add('was-validated');
+
+        }
+    }
+
+    function handleSecurityTypeChange(securityType) {
+        if (securityType === "OPEN") {
+            inputWiFiPassword.disabled = true;
+            inputWiFiPassword.value = "";
+        } else {
+            inputWiFiPassword.disabled = false;
+        }
+    }
+
+    inputWiFiSecurityType.addEventListener('change', function () {
+        handleSecurityTypeChange(this.value);
+    });
+
+    /********************************************************************************
+     * Hosting state handling
+     ********************************************************************************/
+    function setupForMode(isHosting) {
+        if (isHosting) {
+            setNetworkListVisibility(true);
+            doPeriodicScan();
+            periodicScanId = setInterval(doPeriodicScan, PERIODIC_SCAN_INTERVAL_MS);
+        } else {
+            setNetworkListVisibility(false);
+        }
+    }
+
+    function updateCurrentState(mac, isHosting) {
+        setupForMode(isHosting);
+
+        macLabel.innerHTML = mac;
+        hostingLabel.innerHTML = isHosting;
+    }
+
+    function getCurrentState() {
+        postData(STATUS_PATH).then((data) => {
+            if (data === null) {
+                showErrorToast("Error fetching display status");
+                return;
+            }
+
+            let mac = data["mac_address"];
+            let isHosting = data["is_hosting"];
+            updateCurrentState(mac, isHosting);
+        });
+    }
+
+    /********************************************************************************
+     * Image Server Settings
+     ********************************************************************************/
+    function isValidUrl(url) {
+        try {
+            new URL(url); // Try to create a new URL object, throws error if invalid
+            return true;
+        } catch (exception) {
+            return false;
+        }
+    }
+
+    function validateImageServerAddress() {
+        let url = inputImageServerAddress.value.trim();
+
+        // If no protocol is provided, assume http://
+        if (!url.match(/^(http:\/\/)/i) && url.length > 0) {
+            url = 'http://' + url;
+        }
+
+        if (url === '') {
+            inputImageServerAddress.setCustomValidity('Invalid input');
+            inputImageServerAddressFeedback.textContent = 'Please enter a server address.';
+        } else if (!isValidUrl(url)) {
+            inputImageServerAddress.setCustomValidity('Invalid input');
+            inputImageServerAddressFeedback.textContent = 'Please enter a valid URL.';
+        } else {
+            inputImageServerAddress.setCustomValidity('');
+            inputImageServerAddressFeedback.textContent = '';
+        }
+
+        inputImageServerAddress.classList.toggle('is-invalid', !inputImageServerAddress.validity.valid);
+        inputImageServerAddress.classList.toggle('is-valid', inputImageServerAddress.validity.valid && url !== '');
+    }
+
+    inputImageServerAddress.addEventListener('input', validateImageServerAddress);
+    inputImageServerAddress.addEventListener('blur', validateImageServerAddress);
+
+    function validatePort() {
+        const value = inputImageServerPort.value;
+        const numValue = parseInt(value, 10);
+
+        if (value === '') {
+            inputImageServerPort.setCustomValidity('');
+            inputImageServerPortFeedback.textContent = 'Please enter a port number.';
+        } else if (isNaN(numValue)) {
+            inputImageServerPort.setCustomValidity('Invalid input');
+            inputImageServerPortFeedback.textContent = 'Please enter a number.';
+        } else if (numValue <= 0 || numValue > 65535) {
+            inputImageServerPort.setCustomValidity('Invalid range');
+            inputImageServerPortFeedback.textContent = 'Port number must be between 0 and 65535.';
+        } else {
+            inputImageServerPort.setCustomValidity('');
+            inputImageServerPortFeedback.textContent = '';
+        }
+
+        inputImageServerPort.classList.toggle('is-invalid', !inputImageServerPort.validity.valid);
+        inputImageServerPort.classList.toggle('is-valid', inputImageServerPort.validity.valid && value !== '');
+    }
+
+    inputImageServerPort.addEventListener('input', validatePort);
+    inputImageServerPort.addEventListener('blur', validatePort);
+
+    function validateRefreshInterval() {
+        const value = inputImageServerRefreshInterval.value;
+        const numValue = parseInt(value, 10);
+
+        if (value === '') {
+            inputImageServerRefreshInterval.setCustomValidity('');
+            inputImageServerRefreshIntervalFeedback.textContent = 'Please enter a refresh interval.';
+        } else if (isNaN(numValue)) {
+            inputImageServerRefreshInterval.setCustomValidity('Invalid input');
+            inputImageServerRefreshIntervalFeedback.textContent = 'Please enter a number.';
+        } else if (numValue < 120 || numValue > 3600) {
+            inputImageServerRefreshInterval.setCustomValidity('Invalid range');
+            inputImageServerRefreshIntervalFeedback.textContent = 'Refresh interval must be between 120 and 3600.';
+        } else {
+            inputImageServerRefreshInterval.setCustomValidity('');
+            inputImageServerRefreshIntervalFeedback.textContent = '';
+        }
+
+        inputImageServerRefreshInterval.classList.toggle('is-invalid', !inputImageServerRefreshInterval.validity.valid);
+        inputImageServerRefreshInterval.classList.toggle('is-valid',
+            inputImageServerRefreshInterval.validity.valid && value !== '');
+    }
+
+    inputImageServerRefreshInterval.addEventListener('input', validateRefreshInterval);
+    inputImageServerRefreshInterval.addEventListener('blur', validateRefreshInterval);
+
+    function doSaveImageServer(event) {
+        // Prevent the default form submission behavior
+        event.preventDefault();
+
+        // Check if the form is valid
+        let form = document.getElementById('formImageServer');
+        if (form.checkValidity()) {
+            let address = inputImageServerAddress.value;
+            let port = inputImageServerPort.value;
+            let interval = inputImageServerRefreshInterval.value;
+            let config = {"address": address, "port": port, "interval": interval};
+            console.log(`Updating image server to "${address}:${port}@${interval}"`);
+
+            postData(IMAGE_SERVER_CONFIG_PATH, config).then((data) => {
+                if (data === null) {
+                    showErrorToast("Error updating the image server configuration");
+                    return;
+                }
+
+                console.log(`Response: ${data}`)
+
+                if (data['result'] !== "ok") {
+                    showErrorToast(data["message"]);
+                    return;
+                }
+
+                showInfoToast("Image server settings saved");
+            });
+        } else {
+            // Show validation errors
+            console.log('Form validation failed');
+            form.classList.add('was-validated');
+        }
+    }
+
+    /********************************************************************************
+     * Toasts
+     ********************************************************************************/
+    function showErrorToast(message) {
+        const toastElement = document.getElementById('errorToast');
+        const toastBody = toastElement.querySelector('.toast-body');
+        toastBody.textContent = message;
+
+        const toast = new bootstrap.Toast(toastElement);
+        toast.show();
+    }
+
+    function showInfoToast(message) {
+        const toastElement = document.getElementById('infoToast');
+        const toastBody = toastElement.querySelector('.toast-body');
+        toastBody.textContent = message;
+
+        const toast = new bootstrap.Toast(toastElement);
+        toast.show();
+    }
+
+    // Bootstrap validation
+    (function () {
+        'use strict'
+        let forms = document.querySelectorAll('.needs-validation')
+        Array.prototype.slice.call(forms)
+            .forEach(function (form) {
+                form.addEventListener('submit', function (event) {
+                    if (!form.checkValidity()) {
+                        event.preventDefault()
+                        event.stopPropagation()
+                    }
+                    form.classList.add('was-validated')
+                }, false)
+            })
+    })()
+
+    getCurrentState();
+</script>
+
+</body>
+</html>
