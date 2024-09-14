@@ -10,6 +10,7 @@
 extern "C" {
 #endif /* __cplusplus */
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -30,7 +31,7 @@ typedef struct hei_http_network_list {
    size_t num_networks;
 } hei_http_network_list_t;
 
-int hei_http_network_list_to_json(hei_http_network_list_t *networks, char *target, size_t target_size);
+bool hei_http_network_list_to_json(hei_http_network_list_t *networks, char *target, size_t target_size);
 
 #ifdef __cplusplus
 }

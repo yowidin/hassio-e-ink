@@ -9,8 +9,12 @@ target_sources(app PRIVATE
     src/http/server.cpp
 
     # Broken Zephyr APIs
-    src/http/status.c
+    src/http/image_server_config.c
+    src/http/json.c
     src/http/network_list.c
+    src/http/response.c
+    src/http/status.c
+    src/http/wifi_config.c
     src/fuel_gauge.c
 
     src/dns.cpp

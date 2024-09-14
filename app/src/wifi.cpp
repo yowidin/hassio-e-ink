@@ -184,8 +184,11 @@ public:
 
       update_mac_address();
 
-      static_assert((CONFIG_APP_NETWORK_SCAN_DURATION * 2) < CONFIG_APP_NETWORK_SCAN_INTERVAL);
-      k_timer_start(&periodic_network_scan_timer_, K_NO_WAIT, K_SECONDS(CONFIG_APP_NETWORK_SCAN_INTERVAL));
+      // No point in doing network scans when not hosting
+      if (is_hosting_) {
+         static_assert((CONFIG_APP_NETWORK_SCAN_DURATION * 2) < CONFIG_APP_NETWORK_SCAN_INTERVAL);
+         k_timer_start(&periodic_network_scan_timer_, K_NO_WAIT, K_SECONDS(CONFIG_APP_NETWORK_SCAN_INTERVAL));
+      }
    }
 
    [[nodiscard]] bool is_hosting() const { return is_hosting_; }
@@ -562,7 +565,7 @@ bool network::operator<(const network &o) const {
 
 bool network::operator==(const network &o) const {
    using namespace std;
-   return equal(begin(mac), end(mac), begin(o.mac));
+   return ssid == o.ssid;
 }
 
 } // namespace hei::wifi
