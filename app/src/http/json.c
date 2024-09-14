@@ -15,9 +15,9 @@ const char *hei_http_json_decoding_result_to_response_message(hei_http_json_deco
       case hei_http_jdr_success:
          return "ok";
       case hei_http_jdr_decoding_error:
-         return "bad JSON";
+         return "Bad request";
       case hei_http_jdr_invalid_object:
-         return "unexpected encoding";
+         return "Invalid request encoding";
       default:
          LOG_ERR("Unexpected result value: %d", (int)res);
          return "internal server error";

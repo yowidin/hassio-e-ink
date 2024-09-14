@@ -4,22 +4,24 @@
  * @date   Aug. 05, 2024
  */
 
+#include <hei/http/image_server_config.h>
 #include <hei/http/network_list.h>
+#include <hei/http/response.h>
 #include <hei/http/status.h>
+#include <hei/http/wifi_config.h>
 #include <hei/http/server.hpp>
 
+#include <hei/settings.hpp>
 #include <hei/wifi.hpp>
 
 #include <zephyr/logging/log.h>
 #include <zephyr/net/http/server.h>
 #include <zephyr/net/http/service.h>
-
-#include <zephyr/data/json.h>
+#include <zephyr/sys/reboot.h>
 
 #include <array>
 #include <cstdint>
 #include <cstring>
-#include <string_view>
 #include <system_error>
 #include <unordered_map>
 
@@ -101,18 +103,15 @@ public:
                             std::size_t length) = 0;
 };
 
-template <std::size_t PayloadSize = 1024, std::size_t InputBufferSize = 32>
+template <std::size_t PayloadSize = 1024>
 class endpoint : public endpoint_base {
 protected:
    static constexpr std::size_t max_payload_size = PayloadSize;
    using payload_array_t = std::array<std::uint8_t, max_payload_size>;
 
-   static constexpr std::size_t input_buffer_size = InputBufferSize;
-   using input_array_t = std::array<std::uint8_t, input_buffer_size>;
-
 public:
-   [[nodiscard]] auto http_buffer() { return input_buffer_.data(); }
-   [[nodiscard]] auto http_buffer_size() const { return input_buffer_size; }
+   [[nodiscard]] auto http_buffer() { return payload_buffer_.data(); }
+   [[nodiscard]] auto http_buffer_size() const { return max_payload_size; }
 
    int handle_chunk(const http_data_status status,
                     const http_method method,
@@ -132,7 +131,6 @@ public:
          return -413; // Request entity too large
       }
 
-      std::copy(buffer, buffer + length, payload_buffer_.begin() + payload_size_);
       payload_size_ += length;
 
       if (status == HTTP_SERVER_DATA_FINAL) {
@@ -153,25 +151,60 @@ protected:
    [[nodiscard]] auto char_payload() { return reinterpret_cast<char *>(payload_buffer_.data()); }
    [[nodiscard]] auto payload_size() const { return payload_size_; }
 
-protected:
-   //! HTTP payload data will be written into this array with each HTTP server handler call.
-   input_array_t input_buffer_{};
+   int response(const char *result, const char *msg) {
+      hei_http_response_t response{
+         .result = result,
+         .message = msg,
+      };
+      if (!hei_http_response_to_json(&response, char_payload(), max_payload_size)) {
+         return -500;
+      }
+      return static_cast<int>(std::strlen(char_payload()));
+   }
 
-   //! Final payload buffer (containing complete request payload).
-   //! Even for a small payload, it may arrive split into chunks (e.g. if the header size was such that the whole HTTP
-   //	 request exceeds the size of the client buffer).
+   int error_response(const char *msg) { return response("error", msg); }
+
+protected:
    payload_array_t payload_buffer_{};
    std::size_t payload_size_{0};
 };
 
-class status_endpoint : public endpoint<128> {
+class status_endpoint : public endpoint<512> {
 public:
    int handle_request(http_method method) override {
-      const auto is_hosting = hei::wifi::is_hosting();
+      const auto hosting = hei::wifi::is_hosting();
       const auto mac = hei::wifi::mac_address();
+
+      const auto ssid = hei::settings::wifi::ssid();
+      const auto security = hei::settings::wifi::security();
+
+      const auto is_address = hei::settings::image_server::address();
+      const auto is_port = hei::settings::image_server::port();
+      const auto is_interval = hei::settings::image_server::refresh_interval();
+
       const hei_http_status_t obj = {
          .mac_address = mac.data(),
-         .is_hosting = is_hosting,
+         .is_hosting = hosting,
+
+         .wifi =
+            {
+               .ssid = ssid.has_value() ? ssid.value().data() : "",
+               .has_ssid = ssid.has_value(),
+               .security = security.has_value() ? to_string(static_cast<wifi_security_type>(security.value())) : "",
+               .has_security = security.has_value(),
+            },
+
+         .image_server =
+            {
+               .address = is_address.has_value() ? is_address.value().data() : "",
+               .has_address = is_address.has_value(),
+
+               .port = is_port.has_value() ? is_port.value() : 0,
+               .has_port = is_port.has_value(),
+
+               .update_interval = is_interval.has_value() ? static_cast<int>(is_interval.value().count()) : 0,
+               .has_update_interval = is_interval.has_value(),
+            },
       };
 
       if (!hei_http_status_to_json(&obj, char_payload(), max_payload_size)) {
@@ -241,25 +274,75 @@ private:
    hei_http_network_list_t networks_{};
 };
 
-class update_wifi_config_endpoint : public endpoint<256> {
+static void handle_delayed_reboot(k_work *work) {
+   ARG_UNUSED(work);
+   sys_reboot(SYS_REBOOT_COLD);
+}
+
+K_WORK_DELAYABLE_DEFINE(reboot_work, handle_delayed_reboot);
+
+class update_wifi_config_endpoint : public endpoint<512> {
 public:
    int handle_request(http_method method) override {
-      auto response = std::string_view{"{}"};
-      using namespace std;
-      copy(begin(response), end(response), char_payload());
-      // TODO
-      return static_cast<int>(response.size());
+      hei_http_wifi_config_t cfg;
+      auto res = hei_http_wifi_config_from_json(char_payload(), payload_size_, &cfg);
+      if (res != hei_http_jdr_success) {
+         return error_response(hei_http_json_decoding_result_to_response_message(res));
+      }
+
+      const auto ssid = hei::settings::const_span_t{cfg.name, std::strlen(cfg.name)};
+      const auto security = from_string<wifi_security_type>(cfg.security);
+      const auto password = hei::settings::const_span_t{cfg.password, std::strlen(cfg.password)};
+
+      if (ssid.empty()) {
+         return error_response("Bad SSID");
+      }
+
+      if (security == WIFI_SECURITY_TYPE_UNKNOWN) {
+         return error_response("Bad security type");
+      }
+
+      // Password can be empty, so don't check it explicitly
+
+      if (hei::settings::wifi::set(ssid, password, security)) {
+         k_work_reschedule(&reboot_work, K_SECONDS(5)); // Reboot in 5 seconds
+         return response("ok", "success");
+      }
+
+      return error_response("Error saving settings");
    }
 };
 
 class update_image_server_config_endpoint : public endpoint<512> {
 public:
    int handle_request(http_method method) override {
-      auto response = std::string_view{"{}"};
-      using namespace std;
-      copy(begin(response), end(response), char_payload());
-      // TODO
-      return static_cast<int>(response.size());
+      hei_http_image_server_config_t cfg;
+      auto res = hei_http_image_server_config_from_json(char_payload(), payload_size_, &cfg);
+      if (res != hei_http_jdr_success) {
+         return error_response(hei_http_json_decoding_result_to_response_message(res));
+      }
+
+      const auto address = hei::settings::const_span_t{cfg.address, std::strlen(cfg.address)};
+      const auto port = cfg.port;
+      const auto interval = cfg.interval;
+
+      if (address.empty()) {
+         return error_response("Bad server address");
+      }
+
+      if (port < 0 || port > std::numeric_limits<std::uint16_t>::max()) {
+         return error_response("Bad server port");
+      }
+
+      if (interval < 120 || interval > 3600) {
+         return error_response("Bad refresh interval");
+      }
+
+      if (hei::settings::image_server::set(address, port, interval)) {
+         return response("ok", "success");
+      }
+
+      return error_response("Error saving settings");
    }
 };
 

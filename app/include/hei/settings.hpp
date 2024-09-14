@@ -24,6 +24,8 @@ optional_span_t ssid();
 optional_span_t password();
 std::optional<std::uint8_t> security();
 
+bool set(const_span_t ssid, const_span_t password, std::uint8_t security);
+
 namespace ap {
 
 span_t ssid();
@@ -38,6 +40,8 @@ namespace image_server {
 optional_span_t address();
 std::optional<std::uint16_t> port();
 std::optional<std::chrono::seconds> refresh_interval();
+
+bool set(const_span_t address, std::uint16_t port, std::uint32_t interval);
 
 } // namespace image_server
 

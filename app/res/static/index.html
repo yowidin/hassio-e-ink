@@ -231,7 +231,12 @@
         });
 
         if (response.ok) {
-            return response.json();
+            try {
+                return response.json();
+            } catch (exception) {
+                console.log(`Error decoding response: ${response} (${exception})`)
+                return null;
+            }
         } else {
             return null;
         }
@@ -400,7 +405,11 @@
                 console.log(`Response: ${data}`)
 
                 if (data['result'] !== "ok") {
-                    showErrorToast(data["message"]);
+                    if ("message" in data && data["message"] !== "") {
+                        showErrorToast(data["message"]);
+                    } else {
+                        showErrorToast("Unexpected response from server.");
+                    }
                     return;
                 }
 
@@ -458,7 +467,8 @@
             setupForMode(isHosting);
 
             function setValueIfPresent(component, key, config) {
-                if (key in config) {
+                let check_name = 'has_' + key;
+                if (check_name in config && config[check_name]) {
                     component.value = config[key];
                 } else {
                     component.value = '';
@@ -469,7 +479,7 @@
                 let config = data['image_server'];
                 setValueIfPresent(inputImageServerAddress, 'address', config);
                 setValueIfPresent(inputImageServerPort, 'port', config);
-                setValueIfPresent(inputImageServerRefreshInterval, 'interval', config);
+                setValueIfPresent(inputImageServerRefreshInterval, 'update_interval', config);
             }
 
             if ('wifi' in data) {
@@ -586,8 +596,8 @@
         let form = document.getElementById('formImageServer');
         if (form.checkValidity()) {
             let address = inputImageServerAddress.value;
-            let port = inputImageServerPort.value;
-            let interval = inputImageServerRefreshInterval.value;
+            let port = parseInt(inputImageServerPort.value);
+            let interval = parseInt(inputImageServerRefreshInterval.value);
             let config = {"address": address, "port": port, "interval": interval};
             console.log(`Updating image server to "${address}:${port}@${interval}"`);
 

@@ -4,7 +4,7 @@ import json
 
 app = Flask(__name__)
 
-HOSTING = True
+HOSTING = False
 
 
 def as_json(obj):

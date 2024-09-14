@@ -368,6 +368,22 @@ std::optional<std::uint8_t> security() {
    return config.wifi.security.get();
 }
 
+bool set(const_span_t ssid, const_span_t password, std::uint8_t security) {
+   if (!config.wifi.ssid.set(ssid)) {
+      return false;
+   }
+
+   if (!config.wifi.password.set(password)) {
+      return false;
+   }
+
+   if (!config.wifi.security.set(security)) {
+      return false;
+   }
+
+   return true;
+}
+
 namespace ap {
 span_t ssid() {
    return *config.wifi.ap.ssid.get();
@@ -397,6 +413,22 @@ std::optional<std::chrono::seconds> refresh_interval() {
    }
 
    return std::chrono::seconds{*opt};
+}
+
+bool set(const_span_t address, std::uint16_t port, std::uint32_t interval) {
+   if (!config.image_server.address.set(address)) {
+      return false;
+   }
+
+   if (!config.image_server.port.set(port)) {
+      return false;
+   }
+
+   if (!config.image_server.refresh_interval.set(interval)) {
+      return false;
+   }
+
+   return true;
 }
 
 } // namespace image_server

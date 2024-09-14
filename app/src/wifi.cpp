@@ -186,6 +186,7 @@ public:
 
       // No point in doing network scans when not hosting
       if (is_hosting_) {
+         // TODO: Somehow AP breaks if we do network scans regularly. Do a single scan just before hosting.
          static_assert((CONFIG_APP_NETWORK_SCAN_DURATION * 2) < CONFIG_APP_NETWORK_SCAN_INTERVAL);
          k_timer_start(&periodic_network_scan_timer_, K_NO_WAIT, K_SECONDS(CONFIG_APP_NETWORK_SCAN_INTERVAL));
       }
@@ -484,8 +485,7 @@ private:
 
    void start_network_scan() {
       wifi_scan_params params = {
-         .scan_type = WIFI_SCAN_TYPE_ACTIVE,
-         .dwell_time_active = CONFIG_APP_NETWORK_SCAN_DURATION * MSEC_PER_SEC,
+         .scan_type = WIFI_SCAN_TYPE_PASSIVE,
          .dwell_time_passive = CONFIG_APP_NETWORK_SCAN_DURATION * MSEC_PER_SEC,
          .max_bss_cnt = static_cast<std::uint16_t>(networks_.size()),
       };
