@@ -71,9 +71,9 @@
                     <div id="wiFiSettings" class="collapse container text-center">
                         <div id="wiFiSettingsForm" class="d-grid gap-2 col-xl-6 mx-auto">
                             <div class="form-floating mb-3">
-                                <input class="form-control" id="inputWiFiName" placeholder="SSID">
+                                <input class="form-control" id="inputWiFiName" placeholder="SSID" required>
                                 <label for="inputWiFiName">SSID <span class="text-danger">*</span></label>
-                                <div class="invalid-feedback">SSID is required</div>
+                                <div id="inputWiFiNameFeedback" class="invalid-feedback">SSID is required</div>
                             </div>
 
                             <div class="form-floating mb-3">
@@ -114,7 +114,7 @@
                         <div id="imageServerSettingsForm" class="d-grid gap-2 col-xl-6 mx-auto">
                             <div class="form-floating mb-3">
                                 <input class="form-control" id="inputImageServerAddress" placeholder="Address" required>
-                                <label for="inputImageServerAddress">Address <span class="text-danger">*</span> </label>
+                                <label for="inputImageServerAddress">Address <span class="text-danger">*</span></label>
                                 <div id="inputImageServerAddressFeedback" class="invalid-feedback">
                                     Please enter a valid image server address (HTTP)
                                 </div>
@@ -187,7 +187,7 @@
     let WIFI_CONFIG_PATH = "wifi-config";
     let IMAGE_SERVER_CONFIG_PATH = "image-server-config";
 
-    let PERIODIC_SCAN_INTERVAL_MS = 15000;
+    let NETWORK_LIST_FETCH_INTERVAL_MS = 15000;
 
     let titleLabel = document.getElementById("titleLabel");
 
@@ -201,6 +201,7 @@
     let wiFiSettingsContainer = document.getElementById('wiFiSettingsContainer');
     let wiFiSettings = document.getElementById('wiFiSettings');
     let inputWiFiName = document.getElementById('inputWiFiName');
+    let inputWiFiNameFeedback = document.getElementById('inputWiFiNameFeedback');
     let inputWiFiSecurityType = document.getElementById('inputWiFiSecurityType');
     let inputWiFiPassword = document.getElementById('inputWiFiPassword');
 
@@ -216,7 +217,7 @@
     let activeNetworkName = null;
     let currentNetworkList = null;
 
-    let periodicScanId = null;
+    let networkListTimerId = null;
 
     async function postData(method, payload = {}) {
         let host = window.location.host;
@@ -239,28 +240,36 @@
     /********************************************************************************
      * Network configuration
      ********************************************************************************/
-    function stopPeriodicScan() {
-        if (periodicScanId != null) {
-            clearInterval(periodicScanId);
+    function stopNetworkListTimer() {
+        if (networkListTimerId != null) {
+            clearInterval(networkListTimerId);
         }
     }
 
-    function setActiveNetwork(networkName) {
+    function setActiveNetwork(networkName, updateVisibility) {
         activeNetwork = null;
         activeNetworkName = networkName;
-        updateNetworkList();
+        updateNetworkList(updateVisibility);
     }
 
-    function updateForActiveNetwork() {
+    function updateForActiveNetwork(updateVisibility) {
+        let newVisibility;
         if (activeNetwork != null) {
             inputWiFiName.value = activeNetwork['ssid'];
 
             inputWiFiSecurityType.value = activeNetwork['security']
             handleSecurityTypeChange(inputWiFiSecurityType.value);
 
-            updatePasswordVisibility(true);
+            newVisibility = true;
         } else {
-            updatePasswordVisibility(false);
+            newVisibility = false;
+        }
+
+        if (updateVisibility) {
+            console.log('Updating Wi-Fi password visibility');
+            updatePasswordVisibility(newVisibility);
+        } else {
+            console.log('Skipping Wi-Fi password visibility update');
         }
     }
 
@@ -275,13 +284,19 @@
     function updatePasswordVisibility(isVisible) {
         let collapseInstance = new bootstrap.Collapse(wiFiSettings, {toggle: false});
         if (isVisible) {
+            console.log('Displaying WiFI password contents');
             collapseInstance.show();
         } else {
             // Nothing to do here, we don't want to lose the user input
         }
     }
 
-    function updateNetworkList() {
+    function updateNetworkList(updateVisibility) {
+        if (currentNetworkList === null) {
+            console.log('Network list is empty, skipping update');
+            return;
+        }
+
         let activeFound = false;
         let tableContents = '<div class="list-group">';
         for (let networkEntry of currentNetworkList) {
@@ -299,7 +314,7 @@
             }
 
             tableContents +=
-                `<a href="#" class="list-group-item list-group-item-action${activeSuffix}"${activeTag} onclick="setActiveNetwork('${networkName}')">
+                `<a href="#" class="list-group-item list-group-item-action${activeSuffix}"${activeTag} onclick="setActiveNetwork('${networkName}', true)">
      <div class="d-flex w-100 justify-content-between">
        <small class="mb-1">${networkName}</small>
        <small>${rssi}</small>
@@ -309,17 +324,17 @@
         tableContents += '</div>';
 
         if (activeFound) {
-            updateForActiveNetwork();
+            updateForActiveNetwork(updateVisibility);
         } else {
             activeNetwork = null;
             activeNetworkName = null;
-            updateForActiveNetwork();
+            updateForActiveNetwork(updateVisibility);
         }
 
         networkList.innerHTML = tableContents;
     }
 
-    function doPeriodicScan() {
+    function fetchNetworkList() {
         console.log("Fetching AP data");
         postData(NETWORKS_PATH).then((data) => {
             if (data === null) {
@@ -330,7 +345,7 @@
             currentNetworkList = data['networks'];
             console.log(currentNetworkList);
 
-            updateNetworkList();
+            updateNetworkList(false);
         });
     }
 
@@ -344,6 +359,23 @@
         imageServerSettingsContainer.classList.add("invisible");
     }
 
+    function validateWiFiName() {
+        let value = inputWiFiName.value.trim();
+        if (value === '') {
+            inputWiFiName.setCustomValidity('Missing input');
+            inputWiFiNameFeedback.textContent = 'Please enter a network name.';
+        } else {
+            inputWiFiName.setCustomValidity('');
+            inputWiFiNameFeedback.textContent = '';
+        }
+
+        inputWiFiName.classList.toggle('is-invalid', !inputWiFiName.validity.valid);
+        inputWiFiName.classList.toggle('is-valid', inputWiFiName.validity.valid && url !== '');
+    }
+
+    inputWiFiName.addEventListener('input', validateWiFiName);
+    inputWiFiName.addEventListener('blur', validateWiFiName);
+
     function doConnect(event) {
         // Prevent the default form submission behavior
         event.preventDefault();
@@ -351,7 +383,7 @@
         // Check if the form is valid
         let form = document.getElementById('formWiFiSettings');
         if (form.checkValidity()) {
-            stopPeriodicScan();
+            stopNetworkListTimer();
 
             let ssid = inputWiFiName.value;
             let password = inputWiFiPassword.value;
@@ -403,18 +435,11 @@
     function setupForMode(isHosting) {
         if (isHosting) {
             setNetworkListVisibility(true);
-            doPeriodicScan();
-            periodicScanId = setInterval(doPeriodicScan, PERIODIC_SCAN_INTERVAL_MS);
+            fetchNetworkList();
+            networkListTimerId = setInterval(fetchNetworkList, NETWORK_LIST_FETCH_INTERVAL_MS);
         } else {
             setNetworkListVisibility(false);
         }
-    }
-
-    function updateCurrentState(mac, isHosting) {
-        setupForMode(isHosting);
-
-        macLabel.innerHTML = mac;
-        hostingLabel.innerHTML = isHosting;
     }
 
     function getCurrentState() {
@@ -426,7 +451,41 @@
 
             let mac = data["mac_address"];
             let isHosting = data["is_hosting"];
-            updateCurrentState(mac, isHosting);
+
+            macLabel.innerHTML = mac;
+            hostingLabel.innerHTML = isHosting;
+
+            setupForMode(isHosting);
+
+            function setValueIfPresent(component, key, config) {
+                if (key in config) {
+                    component.value = config[key];
+                } else {
+                    component.value = '';
+                }
+            }
+
+            if ('image_server' in data) {
+                let config = data['image_server'];
+                setValueIfPresent(inputImageServerAddress, 'address', config);
+                setValueIfPresent(inputImageServerPort, 'port', config);
+                setValueIfPresent(inputImageServerRefreshInterval, 'interval', config);
+            }
+
+            if ('wifi' in data) {
+                let config = data['wifi'];
+                setValueIfPresent(inputWiFiName, 'ssid', config);
+                if (inputWiFiName.value !== '') {
+                    setActiveNetwork(inputWiFiName.value, false);
+                }
+
+                // Handle possible security type change
+                let security = inputWiFiSecurityType.value;
+                setValueIfPresent(inputWiFiSecurityType, 'security', config);
+                if (security !== inputWiFiSecurityType.value) {
+                    handleSecurityTypeChange(inputWiFiSecurityType.value);
+                }
+            }
         });
     }
 

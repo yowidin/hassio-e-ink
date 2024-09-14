@@ -26,6 +26,15 @@ def status():
     return as_json({
         'mac_address': '00:11:22:33:44:55',
         'is_hosting': HOSTING,
+        'image_server': {
+            'address': 'http://192.168.0.100',
+            'port': '5123',
+            'interval': 180,
+        },
+        'wifi': {
+            'ssid': 'Dummy #3',
+            'security': 'WEP',
+        }
     })
 
 
