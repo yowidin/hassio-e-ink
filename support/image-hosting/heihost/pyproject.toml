@@ -1,22 +1,22 @@
 [build-system]
-requires = ["setuptools>=45", "wheel", "setuptools_scm[toml]>=6.2"]
-build-backend = "setuptools.build_meta"
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
 
-[project]
+[tool.poetry]
 name = "heihost"
-dynamic = ["version"]
-description = "A tool for fetching PNG images and hosting PGM images for the Hassio E-Ink Display"
-requires-python = ">=3.6"
-dependencies = [
-    "Pillow",
-    "numpy",
+version = "0.1.0"
+description = "Hassio E-Ink Image Server"
+authors = ["Dennis Sitelew <dsitelew@yobasoft.de>"]
+packages = [
+    { include = "heihost", from = "src" }
 ]
 
-[project.scripts]
+[tool.poetry.dependencies]
+python = "^3.10"
+Pillow = "^10.4.0"
+numpy = "^2.1.1"
+selenium = "^4.24.0"
+schedule = "^1.2.2"
+
+[tool.poetry.scripts]
 png_to_pgm = "heihost.converter:main"
-
-[tool.setuptools.packages.find]
-where = ["src"]
-
-[tool.pytest.ini_options]
-addopts = "-v"
