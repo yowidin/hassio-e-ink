@@ -17,6 +17,7 @@ Pillow = "^10.4.0"
 numpy = "^2.1.1"
 selenium = "^4.24.0"
 schedule = "^1.2.2"
+lz4 = "^4.3.3"
 
 [tool.poetry.scripts]
-png_to_pgm = "heihost.converter:main"
+hei-capture = "heihost.image_capture:main"
