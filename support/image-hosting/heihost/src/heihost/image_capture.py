@@ -81,6 +81,7 @@ class ImageCapture:
 
         self.firefox_options = Options()
         self.firefox_options.add_argument("--headless")
+        self.firefox_options.set_preference('ui.systemUsesDarkTheme', 0)
 
         self.driver = None
 
@@ -104,6 +105,21 @@ class ImageCapture:
             localStorage.setItem('selectedLanguage', '{json.dumps(self.config.language)}');
         ''')
 
+    async def _set_light_theme(self):
+        await self._execute_script('''
+                const setLightMode = window.matchMedia('(prefers-color-scheme: light)').matches;
+                Object.defineProperty(window, 'matchMedia', {
+                    value: (query) => {
+                        return {
+                            matches: query === '(prefers-color-scheme: light)',
+                            media: query,
+                            onchange: null,
+                            addListener: () => {},
+                            removeListener: () => {},
+                        };
+                    }
+                });''')
+
     async def _setup_viewport(self):
         await self._execute_script(f'''
             window.scrollTo(0, 0);
@@ -121,6 +137,7 @@ class ImageCapture:
     async def _setup_screenshot_page(self):
         await self._navigate(self.screenshot_url)
         await self._setup_viewport()
+        await self._set_light_theme()
 
     async def _initial_setup(self):
         self.driver = webdriver.Firefox(options=self.firefox_options)
