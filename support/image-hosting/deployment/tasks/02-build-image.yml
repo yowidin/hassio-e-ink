@@ -1,0 +1,43 @@
+# Build the server image
+---
+- name: Print out target path
+  debug:
+    msg: "Target path is {{ build_dir }}"
+
+- name: Print out source path
+  debug:
+    msg: "Source path is {{ source_dir }}"
+
+- name: Create application directory
+  file:
+    path: "{{ build_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Copy source files
+  copy:
+    src: "{{ source_dir }}/"
+    dest: "{{ build_dir }}"
+    remote_src: no
+
+- name: Copy Dockerfile
+  template:
+    src: files/server.dockerfile
+    dest: "{{ build_dir }}/Dockerfile"
+
+- name: Stop server if running
+  docker_container:
+    name: "{{ docker_container_name }}"
+    state: absent
+
+- name: Remove old Docker image
+  docker_image:
+    name: "{{ docker_image_name }}"
+    state: absent
+
+- name: Build Docker image
+  docker_image:
+    name: "{{ docker_image_name }}"
+    build:
+      path: "{{ build_dir }}"
+    source: build

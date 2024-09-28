@@ -1,0 +1,28 @@
+---
+- hosts: all
+  become: no
+  gather_facts: yes
+  vars_files:
+    - vars/secrets.yml
+
+  vars:
+    ansible_become_pass: "{{ lookup('file', './sudo_pass.txt') }}"
+    source_dir: "{{ playbook_dir }}/../heihost"
+    build_dir: "/var/tmp/hei"
+    docker_image_name: "hei/image-server"
+    docker_container_name: "hei-image-server"
+
+    server_base_url: "http://192.168.0.123:8123/"
+    server_screenshot_url: "/test-dashboard/0?kiosk&hide_header&hide_search"
+
+  tasks:
+    - import_tasks: tasks/01-install-linux-dependencies.yml
+      tags: linux
+      when: install_deps | default(false)
+
+    - import_tasks: tasks/02-build-image.yml
+      tags: image
+      when: build_image | default(false)
+
+    - import_tasks: tasks/03-run-container.yml
+      tags: container

@@ -1,0 +1,23 @@
+# Install all the necessary dependencies and ensure that Docker is running
+---
+- name: Update apt cache
+  become: yes
+  apt:
+    update_cache: yes
+  when: ansible_os_family == "Debian"
+
+- name: Install required system packages
+  become: yes
+  package:
+    name:
+      - docker.io
+      - python3-pip
+      - python3-docker
+    state: present
+
+- name: Ensure Docker service is running
+  become: yes
+  systemd:
+    name: docker
+    state: started
+    enabled: yes

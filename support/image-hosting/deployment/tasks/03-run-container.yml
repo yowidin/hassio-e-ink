@@ -1,0 +1,16 @@
+# Start the server container
+---
+- name: Start server container
+  docker_container:
+    name: "{{ docker_container_name }}"
+    image: "{{ docker_image_name }}"
+    published_ports:
+      - 8765:8765
+    restart_policy: unless-stopped
+    state: started
+    recreate: true
+    env:
+      BASE_URL: "{{ server_base_url | string}}"
+      SCREENSHOT_URL: "{{ server_screenshot_url | string }}"
+      ACCESS_TOKEN: "{{ hassio_access_token | string }}"
+    detach: true
