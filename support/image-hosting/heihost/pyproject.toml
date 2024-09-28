@@ -20,4 +20,5 @@ schedule = "^1.2.2"
 lz4 = "^4.3.3"
 
 [tool.poetry.scripts]
-hei-capture = "heihost.image_capture:main"
+hei-capture = "heihost.image_capture:sync_main"
+hei-server = "heihost.server:sync_main"

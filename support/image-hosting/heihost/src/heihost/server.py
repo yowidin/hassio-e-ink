@@ -134,7 +134,12 @@ class Server:
                     # Read message type
                     message_type_bytes = await asyncio.wait_for(reader.readexactly(1), timeout=self.timeout)
                     Log.info(message_type_bytes)
-                    message_type = Message.Type.from_int(struct.unpack('<B', message_type_bytes)[0])
+                    raw_type = struct.unpack('<B', message_type_bytes)[0]
+                    if raw_type == 0:
+                        Log.info(f"Client {addr} disconnected")
+                        break
+
+                    message_type = Message.Type.from_int(raw_type)
 
                     handlers: Dict[
                         Message.Type, Callable[[asyncio.StreamReader, asyncio.StreamWriter], Awaitable[None]]] = \
@@ -196,5 +201,9 @@ async def main():
         Log.error(f'Server error: {e}')
 
 
-if __name__ == '__main__':
+def sync_main():
     asyncio.run(main())
+
+
+if __name__ == '__main__':
+    sync_main()

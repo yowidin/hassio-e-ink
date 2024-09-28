@@ -139,16 +139,20 @@ class ImageCapture:
         await self._setup_viewport()
         await self._set_light_theme()
 
+    def _close_driver(self):
+        if self.driver is not None:
+            self.driver.quit()
+            self.driver = None
+
     async def _initial_setup(self):
-        self.driver = webdriver.Firefox(options=self.firefox_options)
         try:
+            self.driver = webdriver.Firefox(options=self.firefox_options)
             self.driver.set_window_size(self.config.width + 100, self.config.height + 100)
             await self._authenticate()
             await self._setup_screenshot_page()
         except Exception as e:
             Log.error(f'Capture setup failed: {e}')
-            self.driver.quit()
-            self.driver = None
+            self._close_driver()
 
     async def _store_current_image(self):
         if self.config.output_dir is None:
@@ -175,8 +179,7 @@ class ImageCapture:
 
         except Exception as e:
             Log.error(f'Screen capture failed: {e}')
-            self.driver.quit()
-            self.driver = None
+            self._close_driver()
 
     async def _capture_once(self):
         if self.driver is None:
@@ -194,9 +197,7 @@ class ImageCapture:
                 await asyncio.sleep(self.config.capture_interval)
         except Exception as e:
             Log.error(f'Image capture exception: {e}')
-            if self.driver is not None:
-                self.driver.quit()
-                self.driver = None
+            self._close_driver()
 
 
 async def main():
@@ -214,5 +215,9 @@ async def main():
     await capture.run()
 
 
-if __name__ == '__main__':
+def sync_main():
     asyncio.run(main())
+
+
+if __name__ == '__main__':
+    sync_main()
