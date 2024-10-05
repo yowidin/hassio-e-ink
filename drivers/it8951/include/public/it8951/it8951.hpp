@@ -8,12 +8,21 @@
 
 #include <array>
 #include <cstdint>
-#include <optional>
+#include <span>
 
 #include <zephyr/device.h>
 
 namespace it8951 {
 
-void display_dummy_image(const device &dev);
+enum class refresh {
+   full,
+   image,
+};
+
+void begin(const device &dev, std::uint16_t width, std::uint16_t height);
+void update(const device &dev, std::span<const std::uint8_t> data);
+void end(const device &dev, std::uint16_t width, std::uint16_t height, refresh type);
+
+void clear(const device &dev);
 
 } // namespace it8951

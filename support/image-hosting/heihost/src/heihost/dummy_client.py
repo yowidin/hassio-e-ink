@@ -3,7 +3,7 @@ import argparse
 import socket
 import struct
 
-import lz4.frame
+import lz4.block
 
 from PIL import Image
 
@@ -13,11 +13,11 @@ def download_and_save(host: str, port: int):
     sock.connect((host, port))
 
     # Get image request
-    sock.send(struct.pack('<H', 0x10))
+    sock.send(struct.pack('<B', 0x10))
 
     # Receive the size of the image
-    header_data = sock.recv(8)
-    header = struct.unpack('<HHHH', header_data)
+    header_data = sock.recv(7)
+    header = struct.unpack('<BHHH', header_data)
 
     message_type = header[0]
     width = header[1]
@@ -27,9 +27,9 @@ def download_and_save(host: str, port: int):
 
     image_data = b''
     for i in range(num_blocks):
-        block_header = sock.recv(6)
-        block_header_data = struct.unpack('<HHH', block_header)
-        message_type = block_header_data [0]
+        block_header = sock.recv(5)
+        block_header_data = struct.unpack('<BHH', block_header)
+        message_type = block_header_data[0]
         if message_type != 0x12:
             raise ConnectionError(f"Bad block message {message_type}")
 
@@ -41,7 +41,7 @@ def download_and_save(host: str, port: int):
         if not chunk:
             raise ConnectionError("Socket connection broken")
 
-        decompressed = lz4.frame.decompress(chunk)
+        decompressed = lz4.block.decompress(chunk, uncompressed_size=uncompressed_size)
         if len(decompressed) != uncompressed_size:
             raise ConnectionError(f"Bad image data: {len(decompressed)} vs {uncompressed_size}")
 

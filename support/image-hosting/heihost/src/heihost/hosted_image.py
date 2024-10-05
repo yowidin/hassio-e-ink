@@ -2,7 +2,7 @@ import asyncio
 
 from PIL import Image
 import numpy as np
-import lz4.frame
+import lz4.block
 
 from heihost.log import Log
 
@@ -74,7 +74,7 @@ class HostedImage:
 
             remaining -= size
             start += size
-            compressed_data = lz4.frame.compress(block_data)
+            compressed_data = lz4.block.compress(block_data, store_size=False)
 
             blocks.append(HostedImage.Block(len(block_data), compressed_data))
 

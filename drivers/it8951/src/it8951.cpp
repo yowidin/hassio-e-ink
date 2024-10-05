@@ -17,54 +17,35 @@
 
 LOG_MODULE_DECLARE(it8951, CONFIG_IT8951_LOG_LEVEL);
 
-extern const unsigned char *get_image_pgm();
-extern unsigned int get_image_len();
+void it8951::begin(const device &dev, std::uint16_t width, std::uint16_t height) {
+   hal::image::begin(dev, width, height);
+}
 
-void it8951::display_dummy_image(const device &dev) {
-   hal::system::sleep(dev);
-   hal::system::power(dev, false);
+void it8951::update(const device &dev, std::span<const std::uint8_t> data) {
+   hal::image::update(dev, data);
+}
 
-   auto clear_screen = [&]() {
-      hal::fill_screen(
-         dev,
-         [](auto x, auto y) {
-            return 0xF0;
-         },
-         waveform_mode_t::init);
-   };
+void it8951::end(const device &dev, std::uint16_t width, std::uint16_t height, refresh type) {
+   waveform_mode_t mode;
+   switch (type) {
+      case refresh::image:
+         mode = waveform_mode_t::grayscale_limited_reduced;
+         break;
 
-   auto display_image = [&] {
-      // Note: we are assuming correct image size here
-      const auto *img = get_image_pgm();
-      const auto expected_spaces = 4; // Magic\wWidth\wHeight\wDepth\wData
-      const auto end = img + get_image_len();
-      int new_lines = 0;
-      while (new_lines < expected_spaces && img != end) {
-         if (std::isspace(*img)) {
-            ++new_lines;
-         }
-         ++img;
-      }
+      case refresh::full:
+      default:
+         mode = waveform_mode_t::init;
+         break;
+   }
 
-      if (img == end) {
-         LOG_ERR("Invalid image format");
-         return;
-      }
+   hal::image::end(dev, width, height, mode);
+}
 
-      hal::fill_screen(
-         dev,
-         [&](auto x, auto y) -> std::uint8_t {
-            return img[static_cast<std::size_t>(y) * 1200U + static_cast<std::size_t>(x)];
-         },
-         waveform_mode_t::grayscale_limited_reduced);
-   };
-
-   // Leaving an image might lead to burn-ins, so just present it shortly and then clean the screen
-   clear_screen();
-   k_sleep(K_SECONDS(10));
-
-   display_image();
-   k_sleep(K_SECONDS(10));
-
-   clear_screen();
+void it8951::clear(const device &dev) {
+   hal::fill_screen(
+      dev,
+      [](auto x, auto y) {
+         return 0xF0;
+      },
+      waveform_mode_t::init);
 }

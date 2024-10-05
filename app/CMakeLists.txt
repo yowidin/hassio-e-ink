@@ -17,8 +17,10 @@ target_sources(app PRIVATE
     src/http/wifi_config.c
     src/fuel_gauge.c
 
+    src/display.cpp
     src/dns.cpp
     src/main.cpp
+    src/image_client.cpp
     src/settings.cpp
     src/shell.c
     src/wifi.cpp
@@ -48,3 +50,19 @@ target_include_directories(app PRIVATE ${HEI_GENERATED_DIR})
 zephyr_linker_sources(SECTIONS ld/http-server-sections.ld)
 zephyr_linker_section(NAME http_resource_desc_http_server_service
     KVMA RAM_REGION GROUP RODATA_REGION SUBALIGN Z_LINK_ITERABLE_SUBALIGN)
+
+# Add sunflower RAM and ROM reports
+foreach(report ram rom)
+    add_custom_target(
+        ${report}_sunflower
+        ${PYTHON_EXECUTABLE}
+        ${CMAKE_CURRENT_SOURCE_DIR}/../scripts/footprint
+        -b ${CMAKE_CURRENT_BINARY_DIR}
+        -t ${report}
+        --skip-build
+        --html ${report}.html
+        DEPENDS ${report}_report
+        USES_TERMINAL
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+    )
+endforeach()

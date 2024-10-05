@@ -7,40 +7,40 @@
 #include <zephyr/sys/reboot.h>
 
 #include <hei/fuel_gauge.h>
-#include <hei/wifi.hpp>
+#include <hei/display.hpp>
 #include <hei/http/server.hpp>
-
-#if CONFIG_EPD_IT8951
-#include <it8951/it8951.hpp>
-#endif
+#include <hei/image_client.hpp>
+#include <hei/wifi.hpp>
 
 #include <exception>
 
 LOG_MODULE_REGISTER(main, CONFIG_APP_LOG_LEVEL);
 
-#if CONFIG_EPD_IT8951
-static const struct device *const display_driver = DEVICE_DT_GET_ONE(ite_it8951);
-#endif
+static const struct gpio_dt_spec led_gpio = GPIO_DT_SPEC_GET(DT_NODELABEL(led), gpios);
 
-bool test_display_driver() {
-#if CONFIG_EPD_IT8951
-   if (!device_is_ready(display_driver)) {
-      LOG_ERR("Display not ready: %s", display_driver->name);
+bool led_init() {
+   if (!device_is_ready(led_gpio.port)) {
+      LOG_ERR("LED GPIO device isn't ready");
       return false;
    }
 
-   try {
-      it8951::display_dummy_image(*display_driver);
-   } catch (const std::exception &e) {
-      LOG_ERR("Display image failed: %s", e.what());
+   int err = gpio_pin_configure_dt(&led_gpio, GPIO_OUTPUT_INACTIVE);
+   if (err) {
+      LOG_ERR("gpio_pin_configure_dt for cloud LED failed: %d", err);
       return false;
    }
-#endif
 
    return true;
 }
 
-void fatal_error(const char *msg) {
+void led_state(bool is_on) {
+   int err = gpio_pin_set_dt(&led_gpio, is_on);
+   if (err) {
+      LOG_ERR("gpio_pin_set_dt for LED failed: %d", err);
+   }
+}
+
+int fatal_error(const char *msg) {
    LOG_ERR("Fatal error: %s", msg);
 
    for (int i = 0; i < 12; ++i) {
@@ -49,6 +49,7 @@ void fatal_error(const char *msg) {
    }
 
    sys_reboot(SYS_REBOOT_COLD);
+   return -1;
 }
 
 void setup_connectivity() {
@@ -62,8 +63,30 @@ void setup_connectivity() {
 }
 
 int main() {
+   if (!led_init()) {
+      return fatal_error("LED init failed");
+   }
+
+   int delay = 5;
+   bool with_fuel_gauge = true;
    if (!hei_fuel_gauge_init()) {
-      LOG_ERR("Fuel gauge init failed");
+      with_fuel_gauge = false;
+      delay = 1;
+   }
+
+   int counter = 0;
+   while (true) {
+      k_sleep(K_SECONDS(delay));
+
+      LOG_INF("Counter: %d", counter++);
+      if (with_fuel_gauge) {
+         hei_fuel_gauge_print();
+      }
+      led_state(counter % 2 == 0);
+   }
+
+   if (!hei::display::init()) {
+      return fatal_error("Display initialization failed");
    }
 
    setup_connectivity();
@@ -71,14 +94,7 @@ int main() {
    k_sleep(K_MSEC(500));
 
    hei::http::server::start();
-
-   // test_display_driver();
-
-   int counter = 0;
-   while (true) {
-      k_sleep(K_SECONDS(5));
-
-      LOG_INF("Counter: %d", counter++);
-      hei_fuel_gauge_print();
+   if (!hei::wifi::is_hosting()) {
+      hei::image_client::start();
    }
 }

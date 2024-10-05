@@ -1,14 +1,17 @@
 manifest:
   remotes:
     - name: zephyrproject-rtos
-      url-base: https://github.com/sylvioalves
+      url-base: https://github.com/zephyrproject-rtos
 
   projects:
     - name: zephyr
       remote: zephyrproject-rtos
-      # revision: v3.7.0
       # 3.7.0 Broke C++ initialization:
       # - https://github.com/zephyrproject-rtos/zephyr/pull/75915
-      revision: bugfix/esp32_cpp_stl
+      revision: v3.7-branch
       import: true
 
+    - name: lz4
+      remote: zephyrproject-rtos
+      revision: 11b8a1e22fa651b524494e55d22b69d3d9cebcfd
+      path: modules/lib/lz4

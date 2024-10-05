@@ -375,7 +375,7 @@
         }
 
         inputWiFiName.classList.toggle('is-invalid', !inputWiFiName.validity.valid);
-        inputWiFiName.classList.toggle('is-valid', inputWiFiName.validity.valid && url !== '');
+        inputWiFiName.classList.toggle('is-valid', inputWiFiName.validity.valid && value !== '');
     }
 
     inputWiFiName.addEventListener('input', validateWiFiName);
@@ -502,36 +502,42 @@
     /********************************************************************************
      * Image Server Settings
      ********************************************************************************/
-    function isValidUrl(url) {
-        try {
-            new URL(url); // Try to create a new URL object, throws error if invalid
-            return true;
-        } catch (exception) {
+    function isValidIPv4(ip) {
+        const segments = ip.split('.');
+        if (segments.length !== 4) {
             return false;
         }
+
+        // Check each segment
+        for (let i = 0; i < segments.length; i++) {
+            const segment = segments[i];
+
+            // Each segment should be a number between 0 and 255
+            // Also, it should not contain leading zeros (e.g., "01")
+            if (!/^\d+$/.test(segment) || Number(segment) < 0 || Number(segment) > 255 ||
+                (segment.length > 1 && segment[0] === '0')) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     function validateImageServerAddress() {
-        let url = inputImageServerAddress.value.trim();
-
-        // If no protocol is provided, assume http://
-        if (!url.match(/^(http:\/\/)/i) && url.length > 0) {
-            url = 'http://' + url;
-        }
-
-        if (url === '') {
+        let address = inputImageServerAddress.value.trim();
+        if (address === '') {
             inputImageServerAddress.setCustomValidity('Invalid input');
             inputImageServerAddressFeedback.textContent = 'Please enter a server address.';
-        } else if (!isValidUrl(url)) {
+        } else if (!isValidIPv4(address)) {
             inputImageServerAddress.setCustomValidity('Invalid input');
-            inputImageServerAddressFeedback.textContent = 'Please enter a valid URL.';
+            inputImageServerAddressFeedback.textContent = 'Please enter a valid IPv4.';
         } else {
             inputImageServerAddress.setCustomValidity('');
             inputImageServerAddressFeedback.textContent = '';
         }
 
         inputImageServerAddress.classList.toggle('is-invalid', !inputImageServerAddress.validity.valid);
-        inputImageServerAddress.classList.toggle('is-valid', inputImageServerAddress.validity.valid && url !== '');
+        inputImageServerAddress.classList.toggle('is-valid', inputImageServerAddress.validity.valid && address !== '');
     }
 
     inputImageServerAddress.addEventListener('input', validateImageServerAddress);

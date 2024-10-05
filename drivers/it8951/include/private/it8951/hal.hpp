@@ -170,6 +170,14 @@ void fill_screen(const device &dev,
                  const std::function<std::uint8_t(std::uint16_t, std::uint16_t)> &generator,
                  waveform_mode_t mode);
 
+namespace image {
+
+void begin(const device &dev, std::uint16_t width, std::uint16_t height);
+void update(const device &dev, std::span<const std::uint8_t> data);
+void end(const device &dev, std::uint16_t width, std::uint16_t height, waveform_mode_t mode);
+
+} // namespace image
+
 namespace vcom {
 
 std::uint16_t get(const device &dev);
@@ -184,7 +192,7 @@ void sleep(const device &dev);
 
 void power(const device &dev, bool is_on);
 
-}
+} // namespace system
 
 } // namespace hal
 

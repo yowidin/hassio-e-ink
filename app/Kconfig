@@ -42,6 +42,26 @@ config APP_NETWORK_SCAN_MAX_RESULTS
     int "Maximal number of networks to return during a scan"
     default 10
 
+config APP_IMAGE_CLIENT_THREAD_STACK_SIZE
+    int "Image client thread stack size"
+    default 2048
+
+config APP_IMAGE_CLIENT_THREAD_PRIORITY
+    int "Image client thread priority"
+    default 0
+
+config APP_IMAGE_CLIENT_READ_TIMEOUT_SEC
+    int "Image client read timeout in seconds"
+    default 15
+
+config APP_IMAGE_CLIENT_RECV_BUFFER_SIZE
+    int "Image client receive buffer size"
+    default 4104
+
+config APP_IMAGE_CLIENT_IMAGE_BUFFER_SIZE
+    int "Image client image buffer size"
+    default 4096
+
 module = APP
 module-str = APP
 source "subsys/logging/Kconfig.template.log_config"

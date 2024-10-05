@@ -10,7 +10,7 @@ from typing import Callable, Awaitable, Dict
 from heihost.log import Log
 from heihost.image_capture import CaptureConfig, ImageCapture
 from heihost.hosted_image import HostedImage
-from heihost.encoding import encode, U16
+from heihost.encoding import encode, U8, U16
 
 
 class Message:
@@ -18,7 +18,7 @@ class Message:
         # No payload
         GetImageRequest = 0x10
 
-        # width: u16, height: u16
+        # width: u16, height: u16, num_blocks: u16
         ImageHeaderResponse = 0x11
 
         # original_size: u16, compressed_size: u16, compressed_data: u8 * compressed_size
@@ -39,7 +39,7 @@ class Message:
         self.values = list(values)
 
     async def write(self, writer: asyncio.StreamWriter):
-        writer.write(encode([U16(self.message_type.value)] + self.values))
+        writer.write(encode([U8(self.message_type.value)] + self.values))
 
 
 class ImageHeaderMessage(Message):
@@ -135,10 +135,6 @@ class Server:
                     message_type_bytes = await asyncio.wait_for(reader.readexactly(1), timeout=self.timeout)
                     Log.info(message_type_bytes)
                     raw_type = struct.unpack('<B', message_type_bytes)[0]
-                    if raw_type == 0:
-                        Log.info(f"Client {addr} disconnected")
-                        break
-
                     message_type = Message.Type.from_int(raw_type)
 
                     handlers: Dict[

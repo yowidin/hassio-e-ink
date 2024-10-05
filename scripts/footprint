@@ -1,0 +1,83 @@
+#!/usr/bin/env python3
+import json
+import tempfile
+import subprocess
+import os
+
+from pyecharts import options as opts
+from pyecharts.charts import Sunburst
+
+
+def create_sunburst_chart(data, html):
+    def process_data(node):
+        children = [process_data(child) for child in node.get('children', [])]
+        return {
+            "name": node['name'],
+            "value": node['size'],
+            "children": children if children else None,
+            "label": {"show": False},
+        }
+
+    processed_data = process_data(data)
+
+    c = (
+        Sunburst(init_opts=opts.InitOpts(width="1920px", height="1080px"))
+            .add(series_name="", data_pair=[processed_data], sort_="desc")
+            .set_global_opts(
+            title_opts=opts.TitleOpts(title="Memory Report"),
+            tooltip_opts=opts.TooltipOpts(trigger="item")
+        )
+            .set_series_opts()
+    )
+
+    c.render(html)
+
+
+def generate_json_report(build_dir: str, report_type: str, skip_build: bool):
+    print(f'Generating JSON {report_type.upper()} report')
+    print(f'Build dir: {build_dir}')
+
+    target_name = f'{report_type}_report'
+
+    cmd = [
+        'cmake',
+        '--build', build_dir,
+        '--target', target_name,
+    ]
+    if not skip_build:
+        subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL)
+
+    report_file = os.path.join(build_dir, f'{report_type}.json')
+    print(f'JSON file: {report_file}')
+    return report_file
+
+
+def main():
+    import argparse
+    parser = argparse.ArgumentParser('Memory Report')
+    parser.add_argument('--build-dir', '-b', help='Build Directory')
+    parser.add_argument('--type', '-t', required=True, help='Report Type (ram/rom)')
+    parser.add_argument('--skip-build', action='store_true', help='Assume the report file already exists')
+    parser.add_argument('--html', help='Path to store the report HTML file')
+
+    args = parser.parse_args()
+
+    html_path = args.html
+    if html_path is None:
+        html_path = tempfile.NamedTemporaryFile(mode='w+t', delete=False).name + '.html'
+
+    report_type = args.type
+    build_dir = args.build_dir
+
+    json_path = generate_json_report(build_dir, report_type, args.skip_build)
+
+    # Load your JSON data
+    with open(json_path, 'r') as f:
+        data = json.load(f)
+
+    create_sunburst_chart(data['symbols'], html_path)
+    subprocess.run(['open', html_path])
+
+
+if __name__ == '__main__':
+    main()

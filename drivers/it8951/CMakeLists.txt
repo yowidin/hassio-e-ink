@@ -9,7 +9,5 @@ zephyr_library_sources(
         src/driver.cpp
         src/error.cpp
         src/util.cpp
-        src/image.cpp
-
         src/init.c
 )

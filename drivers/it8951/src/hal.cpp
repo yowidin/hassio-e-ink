@@ -244,6 +244,69 @@ void power(const device &dev, bool is_on) {
 
 } // namespace system
 
+namespace image {
+
+void begin(const device &dev, std::uint16_t width, std::uint16_t height) {
+   system::power(dev, true);
+   system::run(dev);
+
+   wait_for_display_ready(dev);
+
+   hal::enable_packed_mode(dev);
+
+   set_image_buffer_base_address(dev);
+
+   const image_area area{.x = 0, .y = 0, .width = width, .height = height};
+   load_image_area_start(
+      dev,
+      {.endianness = endianness_t::little, .pixel_format = pixel_format_t::pf4bpp, .rotation = rotation_t::rotate0},
+      area);
+}
+
+void update(const device &dev, std::span<const std::uint8_t> data) {
+   std::array<std::uint8_t, CONFIG_EPD_BURST_WRITE_BUFFER_SIZE> buf{};
+
+   auto burst_write_pixels = [&](int offset, int count) {
+      std::uint16_t preamble = encoding::byte_swap(u16(preamble_t::write_data));
+
+      std::array spi_buffers{
+         spi_buf{.buf = &preamble, .len = sizeof(preamble)},
+         spi_buf{.buf = buf.data(), .len = static_cast<std::size_t>(count)},
+      };
+
+      // Swap pixels for big endian encoding
+      for (int i = 0; i < count; i += 2) {
+         buf[i] = data[offset + i + 1];
+         buf[i + 1] = data[offset + i];
+      }
+
+      const struct spi_buf_set tx_buf_set = {
+         .buffers = spi_buffers.data(),
+         .count = spi_buffers.size(),
+      };
+
+      cs_control cs{dev};
+      spi::write(get_config(dev).spi, tx_buf_set);
+   };
+
+   for (std::size_t i = 0; i < data.size(); i += CONFIG_EPD_BURST_WRITE_BUFFER_SIZE) {
+      const auto remainder = std::min<std::size_t>(data.size() - i, CONFIG_EPD_BURST_WRITE_BUFFER_SIZE);
+      burst_write_pixels(i, remainder);
+   }
+}
+
+void end(const device &dev, std::uint16_t width, std::uint16_t height, waveform_mode_t mode) {
+   load_image_end(dev);
+
+   const image_area area{.x = 0, .y = 0, .width = width, .height = height};
+   display_area(dev, area, waveform_mode_t::grayscale_clearing);
+
+   system::sleep(dev);
+   system::power(dev, false);
+}
+
+} // namespace image
+
 void fill_screen(const device &dev,
                  const std::function<std::uint8_t(std::uint16_t, std::uint16_t)> &generator,
                  waveform_mode_t mode) {
