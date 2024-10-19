@@ -1,0 +1,11 @@
+menu "Zephyr"
+    source "Kconfig.zephyr"
+endmenu
+
+config APP_WAKE_UP_INTERVAL
+    int "Wake-up interval in seconds"
+    default 180
+
+module = APP
+module-str = APP
+source "subsys/logging/Kconfig.template.log_config"

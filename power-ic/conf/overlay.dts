@@ -1,0 +1,40 @@
+/ {
+	gpio_pins {
+		compatible = "gpio-keys";
+
+		power_switch: power_switch {
+			gpios = <&gpio0 24 GPIO_ACTIVE_HIGH>;
+			label = "power_switch";
+		};
+
+		shutdown_request: shutdown_request {
+			gpios = <&gpio0 22 0>;
+			label = "shutdown_request";
+		};
+	};
+};
+
+
+&uart0 {
+	status = "disabled";
+};
+
+&i2c0 {
+	status = "disabled";
+};
+
+&spi1 {
+	status = "disabled";
+};
+
+&radio {
+	status = "disabled";
+};
+
+&ieee802154 {
+	status = "disabled";
+};
+
+&bt_hci_controller {
+	status = "disabled";
+};

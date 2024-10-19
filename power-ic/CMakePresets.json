@@ -1,0 +1,46 @@
+{
+  "version": 2,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 20,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "default",
+      "generator": "Ninja",
+      "hidden": true,
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "ZDebug",
+        "ZEPHYR_TOOLCHAIN_VARIANT": "zephyr",
+        "BOARD": "nrf52840dongle" ,
+        "DTC_OVERLAY_FILE": "${sourceDir}/conf/overlay.dts"
+      }
+    },
+    {
+      "name": "debug",
+      "inherits": "default",
+      "environment": {
+        "OVERLAY_CONFIG": "conf/debug.conf"
+      }
+    },
+    {
+      "name": "release",
+      "inherits": "default",
+      "environment": {
+        "OVERLAY_CONFIG": "conf/release.conf"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "debug",
+      "configurePreset": "debug"
+    },
+    {
+      "name": "release",
+      "configurePreset": "release"
+    }
+  ]
+}
