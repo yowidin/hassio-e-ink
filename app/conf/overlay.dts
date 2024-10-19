@@ -9,6 +9,15 @@
 			label = "led";
 		};
 	};
+
+	output_pins {
+		compatible = "gpio-keys";
+
+		shutdown: shutdown {
+			gpios = <&gpio0 23 GPIO_ACTIVE_HIGH>;
+			label = "shutdown";
+		};
+	};
 };
 
 &wifi {
@@ -60,13 +69,16 @@
 
 	display: display@0 {
 		compatible = "ite,it8951";
-		status = "disabled";
+		status = "okay";
 		reg = <0>;
 
 		// At 8MHz the SPI clock became unstable, and the data could not be delivered reliably
 		spi-max-frequency = <DT_FREQ_M(2)>;
 
+		// There can only be 32 pins per GPIO instance.
+		// We are using pin #34, so we have to go into gpio1 range -> gpio1 pin 2
 		ready-gpios = <&gpio1 2 0>;
+
 		reset-gpios = <&gpio0 13 GPIO_ACTIVE_LOW>;
 		cs-gpios = <&gpio0 26 GPIO_ACTIVE_LOW>;
 		vcom = <1710>; // As printed on the connector (-1.71V -> 1710mV)
