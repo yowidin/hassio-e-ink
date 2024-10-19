@@ -264,21 +264,17 @@ void begin(const device &dev, std::uint16_t width, std::uint16_t height) {
 }
 
 void update(const device &dev, std::span<const std::uint8_t> data) {
-   std::array<std::uint8_t, CONFIG_EPD_BURST_WRITE_BUFFER_SIZE> buf{};
-
    auto burst_write_pixels = [&](int offset, int count) {
       std::uint16_t preamble = encoding::byte_swap(u16(preamble_t::write_data));
 
+      // note: we are casting the const-ness away, but the SPI driver won't touch the
+      // data anyway, so it should be fine
+      auto ptr = const_cast<std::uint8_t *>(&(*(std::begin(data) + offset)));
+
       std::array spi_buffers{
          spi_buf{.buf = &preamble, .len = sizeof(preamble)},
-         spi_buf{.buf = buf.data(), .len = static_cast<std::size_t>(count)},
+         spi_buf{.buf = ptr, .len = static_cast<std::size_t>(count)},
       };
-
-      // Swap pixels for big endian encoding
-      for (int i = 0; i < count; i += 2) {
-         buf[i] = data[offset + i + 1];
-         buf[i + 1] = data[offset + i];
-      }
 
       const struct spi_buf_set tx_buf_set = {
          .buffers = spi_buffers.data(),

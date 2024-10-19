@@ -51,8 +51,38 @@ class HostedImage:
         # Reshape the image to group consecutive pairs of 4-bit values along the width
         reshaped = quantized.reshape(quantized.shape[0], -1, 2)
 
-        # Combine two consecutive 4-bit values into one 8-bit value
-        combined = (reshaped[:, :, 0] << 4) | reshaped[:, :, 1]
+        # The following table is adapted from the IT8951 v0.2.4.3 PDF, p 29:
+        # Figure 7-17. Packed Pixel Data Transfer
+        # 2bpp:
+        # +------+------+------+------+------+------+------+------+
+        # | Pn+7 | Pn+6 | Pn+5 | Pn+4 | Pn+3 | Pn+2 | Pn+1 |  Pn  |
+        # +------+------+------+------+------+------+------+------+
+        #  15                          7
+        #
+        # 3bpp:
+        # +------+------+------+------+------+------+------+------+
+        # | Pn+3 |  0   | Pn+2 |  0   | Pn+1 |  0   |  Pn  |  0   |
+        # +------+------+------+------+------+------+------+------+
+        #  15                          7
+        #
+        # 4bpp:
+        # +------+------+------+------+
+        # | Pn+3 | Pn+2 | Pn+1 |  Pn  |
+        # +------+------+------+------+
+        #  15            7
+        #
+        # 8bpp:
+        # +------+------+
+        # | Pn+1 |  Pn  |
+        # +------+------+
+        #  15     7
+        #
+        # We host 4bpp images, so we have to combine two 4-bit pixels into one byte, with the pixel N in the lower
+        # nibble, and the pixel N+1 in the higher nibble.
+        combined = (reshaped[:, :, 1] << 4) | reshaped[:, :, 0]
+
+        # We also have to swap the byte pairs to better match the final data transfer to the display
+        combined = combined.reshape(combined.shape[0], -1, 2)[:, :, ::-1].reshape(combined.shape)
 
         return Image.fromarray(combined.astype(np.uint8), mode='L')
 

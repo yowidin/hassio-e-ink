@@ -26,7 +26,7 @@ bool led_init() {
 
    int err = gpio_pin_configure_dt(&led_gpio, GPIO_OUTPUT_INACTIVE);
    if (err) {
-      LOG_ERR("gpio_pin_configure_dt for cloud LED failed: %d", err);
+      LOG_ERR("gpio_pin_configure_dt for LED failed: %d", err);
       return false;
    }
 
@@ -65,24 +65,6 @@ void setup_connectivity() {
 int main() {
    if (!led_init()) {
       return fatal_error("LED init failed");
-   }
-
-   int delay = 5;
-   bool with_fuel_gauge = true;
-   if (!hei_fuel_gauge_init()) {
-      with_fuel_gauge = false;
-      delay = 1;
-   }
-
-   int counter = 0;
-   while (true) {
-      k_sleep(K_SECONDS(delay));
-
-      LOG_INF("Counter: %d", counter++);
-      if (with_fuel_gauge) {
-         hei_fuel_gauge_print();
-      }
-      led_state(counter % 2 == 0);
    }
 
    if (!hei::display::init()) {
