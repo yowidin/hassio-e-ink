@@ -4,7 +4,15 @@ endmenu
 
 config APP_WAKE_UP_INTERVAL
     int "Wake-up interval in seconds"
+    help
+        Default wake up interval in seconds
     default 180
+
+config APP_LED_SIGNAL_POWER_STATE
+    bool "LED signal power state"
+    help
+        Signal the current power rail state with the built-in LED
+    default y
 
 module = APP
 module-str = APP
