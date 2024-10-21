@@ -20,10 +20,16 @@ int main(void) {
    };
 
    while (true) {
-      set_power_state(true);
-      auto sleep_duration = shutdown::get_sleep_duration();
+      try {
+         set_power_state(true);
+         auto sleep_duration = shutdown::get_sleep_duration();
 
-      set_power_state(false);
-      k_sleep(K_SECONDS(sleep_duration.count()));
+         set_power_state(false);
+
+         k_sleep(K_SECONDS(sleep_duration.count()));
+      } catch (const std::exception &e) {
+         LOG_ERR("Exception: %s", e.what());
+         k_sleep(K_SECONDS(CONFIG_APP_WAKE_UP_INTERVAL));
+      }
    }
 }

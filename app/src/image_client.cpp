@@ -7,6 +7,7 @@
 #include <hei/display.hpp>
 #include <hei/image_client.hpp>
 #include <hei/settings.hpp>
+#include <hei/shutdown.hpp>
 
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
@@ -62,9 +63,10 @@ private:
       (void)k_event_wait(&client_events, ce_start, false, K_FOREVER);
 
       const auto interval_opt = hei::settings::image_server::refresh_interval();
-      k_timeout_t sleep_duration = K_SECONDS(60);
+
+      std::chrono::seconds sleep_duration{60};
       if (interval_opt) {
-         sleep_duration = K_SECONDS(interval_opt->count());
+         sleep_duration = *interval_opt;
       }
 
       if (!convert_server_address()) {
@@ -92,7 +94,13 @@ private:
             socket_ = 0;
          }
 
-         (void)k_event_wait(&client_events, ce_manual_fetch, true, sleep_duration);
+         // Try shutting down
+         for (int i = 0; i < 10; ++i) {
+            hei::shutdown::request(sleep_duration);
+            k_sleep(K_MSEC(100));
+         }
+
+         (void)k_event_wait(&client_events, ce_manual_fetch, true, K_SECONDS(sleep_duration.count()));
       }
    }
 

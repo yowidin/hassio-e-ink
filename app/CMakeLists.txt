@@ -19,10 +19,12 @@ target_sources(app PRIVATE
 
     src/display.cpp
     src/dns.cpp
+    src/led.cpp
     src/main.cpp
     src/image_client.cpp
     src/settings.cpp
     src/shell.c
+    src/shutdown.cpp
     src/wifi.cpp
 )
 

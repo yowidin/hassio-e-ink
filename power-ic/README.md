@@ -4,5 +4,5 @@ A small IC for turning the main IC on and off periodically, ensuring that it doe
 
 ## Flashing
 
-Press the flash button on the board (it is mounted sideways) and use the nRF Programmer to flash the `zephyr.elf` file
+Press the flash button on the board (it is mounted sideways) and use the nRF Programmer to flash the `zephyr.hex` file
 (you can drag&drop it into the programmer).

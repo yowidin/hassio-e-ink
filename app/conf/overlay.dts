@@ -10,14 +10,6 @@
 		};
 	};
 
-	output_pins {
-		compatible = "gpio-keys";
-
-		shutdown: shutdown {
-			gpios = <&gpio0 23 GPIO_ACTIVE_HIGH>;
-			label = "shutdown";
-		};
-	};
 };
 
 &wifi {
@@ -46,6 +38,14 @@
 			bias-pull-up;
 			drive-open-drain;
 			output-high;
+		};
+	};
+
+	shutdown_uart0_default: shutdown_uart0_default {
+		group1 {
+			pinmux = <UART2_TX_GPIO23>;
+			bias-pull-up;
+			drive-open-drain;
 		};
 	};
 
@@ -102,6 +102,14 @@
 	};
 };
 
-&spi3 {
-	status = "disabled";
+&uart2 {
+	status = "okay";
+
+	pinctrl-0 = <&shutdown_uart0_default>;
+	pinctrl-names = "default";
+
+	current-speed = <9600>;
+	parity = "odd";
+	stop-bits = "1";
+	data-bits = <8>;
 };
