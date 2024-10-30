@@ -4,6 +4,7 @@
  * @date   Sep. 30, 2024
  */
 
+#include <hei/fuel_gauge.h>
 #include <hei/display.hpp>
 #include <hei/image_client.hpp>
 #include <hei/settings.hpp>
@@ -47,6 +48,57 @@ private:
       image_header_response = 0x11,
       image_block_response = 0x12,
       server_error = 0x50,
+   };
+
+   struct get_image_request {
+   public:
+      // type: u8, fg_valid: u8, runtime_to_empty: u32, runtime_to_full: u32, charge_percentage: u8, voltage: u32
+      static constexpr std::size_t array_size = 1 + 1 + 4 + 4 + 1 + 4;
+      using array_t = std::array<std::uint8_t, array_size>;
+
+   public:
+      get_image_request() {
+         auto it = payload.begin();
+         write(it, static_cast<std::uint8_t>(message_type::get_image_request));
+
+         const auto fg = hei_fuel_gauge_get();
+         write(it, static_cast<std::uint8_t>(fg.valid));
+         if (!fg.valid) {
+            // We don't care about rest of the fields if the fuel gauge is not available
+            return;
+         }
+
+         write(it, fg.runtime_to_empty_minutes);
+         write(it, fg.runtime_to_full_minutes);
+         write(it, fg.relative_state_of_charge_percentage);
+         write(it, fg.voltage_uv);
+      }
+
+   private:
+      template <std::unsigned_integral T>
+      void write(array_t::iterator &it, const T value) {
+         constexpr auto size = sizeof(T);
+         if (size == 1) {
+            // Only one byte - just write it
+            *it = static_cast<std::uint8_t>(value);
+            std::advance(it, 1U);
+            return;
+         }
+
+         // Encode as little-endian
+         for (std::size_t i = 0; i < size; ++i) {
+            if (i == 0) {
+               *it = static_cast<std::uint8_t>(value & 0xFF);
+            } else {
+               *it = static_cast<std::uint8_t>((value >> (i * 8)) & 0xFF);
+            }
+
+            std::advance(it, 1U);
+         }
+      }
+
+   public:
+      array_t payload{};
    };
 
 public:
@@ -130,12 +182,13 @@ private:
          throw_error("Error setting socket flags", errno);
       }
 
-      auto message = static_cast<std::uint8_t>(message_type::get_image_request);
-      if (send(socket_, &message, sizeof(message), 0) < 0) {
-         throw_error("Error sending request", errno);
+      // Request the new image (together with the refresh type) and send the fuel gauge readings at the same time
+      get_image_request req{};
+      if (auto ec = send(req.payload)) {
+         throw_error("Error sending request", ec.value());
       }
 
-      // Read header: message_type: u8 | width: u16 | height: u16 | num_blocks: u16
+      // Read header: message_type: u8, width: u16, height: u16, num_blocks: u16
       auto type = static_cast<message_type>(read<std::uint8_t>());
       if (type == message_type::server_error) {
          LOG_WRN("Server error");
@@ -148,7 +201,7 @@ private:
       }
 
       // x2 because the transmitted image is 4 bytes per pixel
-      const auto image_width = read<std::uint16_t>() * 2;
+      const auto image_width = static_cast<std::uint16_t>(read<std::uint16_t>() * 2);
       const auto image_height = read<std::uint16_t>();
       const auto num_blocks = read<std::uint16_t>();
 
@@ -240,14 +293,14 @@ private:
             continue;
          }
 
-         const T tmp = static_cast<T>(static_cast<T>(recv_buffer_[i]) << i * 8);
+         const T tmp = static_cast<T>(static_cast<T>(recv_buffer_[i]) << (i * 8));
          result |= tmp;
       }
 
       return result;
    }
 
-   std::error_code receive(std::size_t num_bytes) {
+   [[nodiscard]] std::error_code receive(std::size_t num_bytes) {
       fd_set read_fds{}, err_fds{};
       timeval tv{};
 
@@ -302,6 +355,72 @@ private:
 
          if (num_received > 0) {
             offset += num_received;
+            continue;
+         }
+
+         const int error = errno;
+         if (error != EWOULDBLOCK && error != EAGAIN) {
+            LOG_ERR("Read error: %s", strerror(error));
+            return std::make_error_code(std::errc{error});
+         }
+      }
+   }
+
+   [[nodiscard]] std::error_code send(std::span<std::uint8_t, std::dynamic_extent> payload) const {
+      fd_set write_fds{}, err_fds{};
+      timeval tv{};
+
+      std::size_t offset = 0;
+      while (true) {
+         if (offset == payload.size()) {
+            // Done writing requested number of bytes
+            return {};
+         }
+
+         FD_ZERO(&write_fds);
+         FD_ZERO(&err_fds);
+         FD_SET(socket_, &write_fds);
+         FD_SET(socket_, &err_fds);
+
+         tv.tv_sec = CONFIG_APP_IMAGE_CLIENT_READ_TIMEOUT_SEC;
+         tv.tv_usec = 0;
+
+         const int activity = select(socket_ + 1, nullptr, &write_fds, &err_fds, &tv);
+         if (activity < 0) {
+            LOG_ERR("Select error: %s", strerror(errno));
+            return std::make_error_code(std::errc{errno});
+         }
+
+         if (activity == 0) {
+            LOG_ERR("Write timeout");
+            return std::make_error_code(std::errc::timed_out);
+         }
+
+         if (FD_ISSET(socket_, &err_fds)) {
+            int error = 0;
+            socklen_t len = sizeof(error);
+            if (getsockopt(socket_, SOL_SOCKET, SO_ERROR, &error, &len) < 0) {
+               LOG_ERR("Unknown socket error");
+               return std::make_error_code(std::errc::io_error);
+            } else if (error != 0) {
+               LOG_ERR("Socket error: %s", strerror(error));
+               return std::make_error_code(std::errc{error});
+            }
+            return std::make_error_code(std::errc::io_error);
+         }
+
+         if (!FD_ISSET(socket_, &write_fds)) {
+            continue;
+         }
+
+         const ssize_t num_sent = ::send(socket_, payload.data() + offset, payload.size() - offset, 0);
+         if (num_sent == 0) {
+            LOG_ERR("Connection closed");
+            return std::make_error_code(std::errc::not_connected);
+         }
+
+         if (num_sent > 0) {
+            offset += num_sent;
             continue;
          }
 

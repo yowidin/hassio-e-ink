@@ -10,12 +10,12 @@ from typing import Callable, Awaitable, Dict
 from heihost.log import Log
 from heihost.image_capture import CaptureConfig, ImageCapture
 from heihost.hosted_image import HostedImage
-from heihost.encoding import encode, U8, U16
+from heihost.encoding import encode, decode, U8, U16, U32
 
 
 class Message:
     class Type(Enum):
-        # No payload
+        # fg_valid: u8, runtime_to_empty: u32, runtime_to_full: u32, charge_percentage: u8, voltage: u32
         GetImageRequest = 0x10
 
         # width: u16, height: u16, num_blocks: u16
@@ -40,6 +40,23 @@ class Message:
 
     async def write(self, writer: asyncio.StreamWriter):
         writer.write(encode([U8(self.message_type.value)] + self.values))
+
+
+@dataclass
+class GetImageRequest(Message):
+    fuel_gauge_valid: bool  # u8
+    runtime_to_empty: int  # u32
+    runtime_to_full: int  # u32
+    charge_percentage: int  # u8
+    voltage: int  # u32
+
+    @staticmethod
+    async def read(reader: asyncio.StreamReader, timeout) -> 'GetImageRequest':
+        # The rest of the fields we still have to read
+        remaining_bytes = 1 + 4 + 4 + 1 + 4
+        payload_bytes = await asyncio.wait_for(reader.readexactly(remaining_bytes), timeout)
+        payload = decode(payload_bytes, [U8, U32, U32, U8, U32])
+        return GetImageRequest(payload[0] != 0, payload[1], payload[2], payload[3], payload[4])
 
 
 class ImageHeaderMessage(Message):
@@ -122,18 +139,12 @@ class Server:
         addr = writer.get_extra_info('peername')
         Log.info(f"New connection from {addr}")
 
-        # Binary protocol:
-        # Multi-byte values are encoded as little endian
-        # |                  Request                   |
-        # |       1      |      2       | payload_size |
-        # | message_type | payload_size |   payload    |
-        # Payload (and its size) are optional for simple requests (e.g.: get image).
+        # NOTE: Multi-byte values are encoded as little endian
         try:
             while True:
                 try:
                     # Read message type
                     message_type_bytes = await asyncio.wait_for(reader.readexactly(1), timeout=self.timeout)
-                    Log.info(message_type_bytes)
                     raw_type = struct.unpack('<B', message_type_bytes)[0]
                     message_type = Message.Type.from_int(raw_type)
 
@@ -174,6 +185,14 @@ class Server:
 
     async def _handle_get_image(self, _, writer):
         Log.debug("Get image request")
+    async def _handle_get_image(self, reader, writer):
+        request = await GetImageRequest.read(reader, self.timeout)
+
+        Log.debug(f"Get image request: {request}")
+
+        # TODO: Post fuel gauge values into MQTT
+
+        # TODO: Decide on refresh type and post it as a parameter
 
         screenshot = self.image_capture.latest_screenshot
         if screenshot is None:

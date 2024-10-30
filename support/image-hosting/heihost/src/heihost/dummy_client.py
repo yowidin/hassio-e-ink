@@ -13,7 +13,7 @@ def download_and_save(host: str, port: int):
     sock.connect((host, port))
 
     # Get image request
-    sock.send(struct.pack('<B', 0x10))
+    sock.send(struct.pack('<BBIIBI', 0x10, 1, 55, 0, 10, 3300000))
 
     # Receive the size of the image
     header_data = sock.recv(7)

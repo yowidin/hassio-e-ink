@@ -1,6 +1,6 @@
 from enum import Enum
 from functools import wraps
-from typing import List
+from typing import List, Protocol
 
 import struct
 
@@ -25,6 +25,8 @@ class Format(Enum):
 
 def packed_int(fmt: Format):
     def decorator(cls):
+        cls.format = fmt
+
         @wraps(cls)
         def wrapper(*args, **kwargs):
             is_signed = fmt.name[0] == 'i'
@@ -112,3 +114,16 @@ def encode_with_order(order: ByteOrder, ints: List[packed_int]):
         values.append(x.value)
 
     return struct.pack(f'{order.value}{"".join(formats)}', *values)
+
+
+class HasFormat(Protocol):
+    format: Format
+
+
+def decode(data: bytes, classes: List[HasFormat]):
+    return decode_with_order(data, ByteOrder.Default, classes)
+
+
+def decode_with_order(data: bytes, order: ByteOrder, classes: List[HasFormat]):
+    formats = [cls.format.value for cls in classes]
+    return struct.unpack(f'{order.value}{"".join(formats)}', data)
