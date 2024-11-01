@@ -1,0 +1,53 @@
+#!/usr/bin/env python3
+import os
+import re
+import subprocess
+
+# Short backtrace example:
+# Ba0x40123ae1:0x30x40123b48:0x30x400fcbdd:0x30x400fcc46:0x30x400ee095:0x30x400f4589:0x30x400f500a:0x30x40149429:0x30x400d097a:0x30x400d0b71:0x30x400d201d:0x30x4009cb6b:0x30x400debd8:0x3
+
+# Long backtrace examples:
+# Backtrace:0x4008b77a:0x3ffcd5e0 0x4008b7ac:0x3ffcd610 0x4008bec1:0x3ffcd640 0x4008d6ed:0x3ffcd670 0x4008d801:0x3ffcd6c0 0x40125a51:0x3ffcd6f0 0x40125a9d:0x3ffcd720 0x40125c25:0x3ffcd780 0x40125dae:0x3ffcd7c0 uar
+# 0x40126265:0x3ffcd800 0x4012644a:0x3ffcd830 0x4012542a:0x3ffcd860 0x4012570d:0x3ffcd8a0 0x400d7fba:0x3ffcd8e0 0x400d81de:0x3ffcd970 0x400d83a1:0x3ffcd9c0 0x400dc0fc:0x3ffcd9f0
+
+# Backtrace:0x40087de4:0x3ffd3a30 0x4008b0c5:0x3ffd3a40 0x4008bf98:0x3ffd3a70 0x400883ac:0x3ffd3aa0 0x400889ae:0x3ffd3ad0 0x40087ee7:0x3ffd3b10  |<-CORRUPTED
+
+SHORT_BACKTRACE_PATTERN = r'0x[0-9a-fA-F]{2,2}x'
+SHORT_BACKTRACE_ENTRIES = r'(0x[0-9a-fA-F]{8,8}:0x[0-9a-fA-F]{1,1})'
+FULL_BACKTRACE_ENTRIES = r'(0x[0-9a-fA-F]{8,8}:0x[0-9a-fA-F]{8,8})'
+
+def split_short_backtrace(backtrace: str) -> list:
+    m = re.findall(SHORT_BACKTRACE_ENTRIES, backtrace)
+    return [x for x in m]
+
+def split_backtrace(backtrace: str) -> list:
+    m = re.findall(SHORT_BACKTRACE_PATTERN, backtrace)
+    if m:
+        return split_short_backtrace(backtrace)
+
+    m = re.findall(FULL_BACKTRACE_ENTRIES, backtrace)
+    return [x for x in m]
+
+def main():
+    import argparse
+    parser = argparse.ArgumentParser('ESP32 Backtrace parser')
+
+    parser.add_argument('--backtrace', '-b', help='Backtrace string')
+    parser.add_argument('--zephyr-sdk-dir', '-z', help='Zephyr SDK directory')
+    parser.add_argument('--binary', '-f', help='zephyr.elf binary')
+
+    args = parser.parse_args()
+
+    binary = os.path.expanduser(args.binary)
+    zephyr_sdk = os.path.expanduser(args.zephyr_sdk_dir)
+    backtrace= split_backtrace(args.backtrace)
+
+    addr2line = os.path.join(zephyr_sdk, 'xtensa-espressif_esp32_zephyr-elf', 'bin',
+                             'xtensa-espressif_esp32_zephyr-elf-addr2line')
+
+    for line in backtrace:
+        subprocess.run([addr2line, '-e', binary, line], check=True)
+
+
+if __name__ == '__main__':
+    main()
