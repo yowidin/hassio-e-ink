@@ -219,7 +219,7 @@ class available_networks_endpoint : public endpoint<1024> {
 private:
 public:
    int handle_request(http_method method) override {
-      hei::wifi::with_nwtwork_list([this](const auto &networks, auto count) {
+      hei::wifi::with_network_list([this](const auto &networks, auto count) {
          networks_.num_networks = count;
          for (std::size_t i = 0; i < count; ++i) {
             auto &target = networks_.networks[i];

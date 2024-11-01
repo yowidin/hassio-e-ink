@@ -9,13 +9,18 @@
 #include <it8951/common.hpp>
 #include <it8951/util.hpp>
 
+#include <zephyr-cpp/expected.hpp>
+
 #include <cstdint>
-#include <optional>
-#include <system_error>
 
 #include <zephyr/kernel.h>
 
 namespace it8951::hal {
+
+template <typename T>
+using expected = zephyr::expected<T>;
+
+using void_t = zephyr::void_t;
 
 //! When using SPI every data exchange with the IT8951 requires a preamble, which depends on the desired action
 enum class preamble : std::uint16_t {
@@ -63,67 +68,43 @@ enum class reg : std::uint16_t {
    lutafsr = DISPLAY_BASE + 0x0224, // LUT Status (all LUT engines)
 };
 
-void write_command(const device &dev, command cmd, std::error_code &ec);
-void write_command(const device &dev, command cmd);
+void_t write_command(const device &dev, command cmd);
+void_t write_command(const device &dev, command cmd, const_span_t args);
 
-void write_command(const device &dev, command cmd, const_span_t args, std::error_code &ec);
-void write_command(const device &dev, command cmd, const_span_t args);
-
-void write_data(const device &dev, const_span_t data, std::error_code &ec);
-void write_data(const device &dev, const_span_t data);
+void_t write_data(const device &dev, const_span_t data);
 
 // Write a maximum of CONFIG_EPD_BURST_WRITE_BUFFER_SIZE bytes
-void burst_write_one_chunk(const device &dev, std::span<const std::uint8_t> data, std::error_code &ec);
-void burst_write_one_chunk(const device &dev, std::span<const std::uint8_t> data);
+void_t burst_write_one_chunk(const device &dev, std::span<const std::uint8_t> data);
 
-void write_data_chunked_bursts(const device &dev, std::span<const std::uint8_t> data, std::error_code &ec);
-void write_data_chunked_bursts(const device &dev, std::span<const std::uint8_t> data);
+void_t write_data_chunked_bursts(const device &dev, std::span<const std::uint8_t> data);
 
-void write_register(const device &dev, reg reg, std::uint16_t value, std::error_code &ec);
-void write_register(const device &dev, reg reg, std::uint16_t value);
+void_t write_register(const device &dev, reg reg, std::uint16_t value);
 
-void read_data(const device &dev, span_t data, std::error_code &ec);
-void read_data(const device &dev, span_t data);
+void_t read_data(const device &dev, span_t data);
 
-std::optional<std::uint16_t> read_register(const device &dev, reg reg, std::error_code &ec);
-std::uint16_t read_register(const device &dev, reg reg);
+expected<std::uint16_t> read_register(const device &dev, reg reg);
 
-void enable_packed_mode(const device &dev, std::error_code &ec);
-void enable_packed_mode(const device &dev);
+void_t enable_packed_mode(const device &dev);
 
 namespace vcom {
 
-std::optional<std::uint16_t> get(const device &dev, std::error_code &ec);
-std::uint16_t get(const device &dev);
-
-void set(const device &dev, std::uint16_t value, std::error_code &ec);
-void set(const device &dev, std::uint16_t value);
+expected<std::uint16_t> get(const device &dev);
+void_t set(const device &dev, std::uint16_t value);
 
 } // namespace vcom
 
 namespace system {
 
-void run(const device &dev, std::error_code &ec);
-void run(const device &dev);
-
-void sleep(const device &dev, std::error_code &ec);
-void sleep(const device &dev);
-
-void power(const device &dev, bool is_on, std::error_code &ec);
-void power(const device &dev, bool is_on);
+void_t run(const device &dev);
+void_t sleep(const device &dev);
+void_t power(const device &dev, bool is_on);
 
 } // namespace system
 
 namespace image {
 
-void begin(const device &dev,
-           const common::image::area &area,
-           const common::image::config &config,
-           std::error_code &ec);
-void begin(const device &dev, const common::image::area &area, const common::image::config &config);
-
-void end(const device &dev, const common::image::area &area, const common::waveform_mode mode, std::error_code &ec);
-void end(const device &dev, const common::image::area &area, const common::waveform_mode mode);
+void_t begin(const device &dev, const common::image::area &area, const common::image::config &config);
+void_t end(const device &dev, const common::image::area &area, const common::waveform_mode mode);
 
 } // namespace image
 

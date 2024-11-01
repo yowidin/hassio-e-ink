@@ -1,0 +1,2 @@
+add_subdirectory_ifdef(CONFIG_ZEPHYR_CPP zephyr-cpp)
+add_subdirectory_ifdef(CONFIG_TL_EXPECTED expected)

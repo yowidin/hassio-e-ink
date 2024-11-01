@@ -263,7 +263,6 @@ public:
       auto length = std::strlen(default_value);
       auto res = this->set({default_value, length}, false);
       if (!res) {
-         //         throw std::runtime_error("Invalid default value");
          LOG_ERR("Invalid default value for %s, %s", key, default_value);
       }
    }

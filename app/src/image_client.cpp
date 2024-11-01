@@ -5,10 +5,13 @@
  */
 
 #include <hei/fuel_gauge.h>
+#include <hei/common.hpp>
 #include <hei/display.hpp>
 #include <hei/image_client.hpp>
 #include <hei/settings.hpp>
 #include <hei/shutdown.hpp>
+
+#include <zephyr-cpp/error.hpp>
 
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
@@ -22,7 +25,8 @@
 #include <lz4.h>
 
 #include <array>
-#include <stdexcept>
+#include <tuple>
+#include <utility>
 
 #include <autoconf.h>
 
@@ -31,6 +35,8 @@
 #endif
 
 LOG_MODULE_REGISTER(image_client, CONFIG_APP_LOG_LEVEL);
+
+using namespace zephyr;
 
 namespace {
 
@@ -127,16 +133,15 @@ private:
       }
 
       while (true) {
-         try {
-            const auto start = k_uptime_get();
+         const auto start = k_uptime_get();
 
-            fetch_image();
-
+         auto res = fetch_image();
+         if (res) {
             const auto end = k_uptime_get();
             const auto delta = end - start;
             LOG_INF("Received image in %" PRIi64 " ms", delta);
-         } catch (const std::exception &e) {
-            LOG_ERR("Image client error: %s", e.what());
+         } else {
+            LOG_ERR("Image client error: %s", res.error().message().c_str());
          }
 
          if (socket_) {
@@ -160,20 +165,20 @@ private:
       }
    }
 
-   static void throw_error(const char *message, int error) {
+   static auto report_error(const char *message, int error) {
       LOG_ERR("%s: %s", message, strerror(error));
-      throw std::system_error(std::make_error_code(std::errc{error}));
+      return unexpected(error);
    }
 
-   void fetch_image() {
+   void_t fetch_image() {
       namespace common_t = it8951::common;
 
       if ((socket_ = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-         throw_error("Socket creation error", errno);
+         return report_error("Socket creation error", errno);
       }
 
       if (connect(socket_, reinterpret_cast<sockaddr *>(&server_address_), sizeof(server_address_)) < 0) {
-         throw_error("Connection failed", errno);
+         return report_error("Connection failed", errno);
       }
 
       LOG_INF("Connected to server");
@@ -181,32 +186,40 @@ private:
       // Set socket to non-blocking mode
       int flags = fcntl(socket_, F_GETFL, 0);
       if (flags < 0) {
-         throw_error("Error getting socket flags", errno);
+         return report_error("Error getting socket flags", errno);
       }
 
       if (fcntl(socket_, F_SETFL, flags | O_NONBLOCK) < 0) {
-         throw_error("Error setting socket flags", errno);
+         return report_error("Error setting socket flags", errno);
       }
 
       // Request the new image (together with the refresh type) and send the fuel gauge readings at the same time
       get_image_request req{};
-      if (auto ec = send(req.payload)) {
-         throw_error("Error sending request", ec.value());
+      if (auto res = send(req.payload); !res) {
+         return report_error("Error sending request", res.error().value());
       }
 
       // Read header: message_type: u8, update_type: u8, width: u16, height: u16, num_blocks: u16
-      auto type = static_cast<message_type>(read<std::uint8_t>());
+      using response_t = std::tuple<std::uint8_t, std::uint8_t, std::uint16_t, std::uint16_t, std::uint16_t>;
+      auto response_res = read_tuple<response_t>();
+      if (!response_res) {
+         return tl::unexpected{response_res.error()};
+      }
+
+      const auto [type_raw, mode_raw, width_raw, image_height, num_blocks] = *response_res;
+
+      auto type = static_cast<message_type>(type_raw);
       if (type == message_type::server_error) {
          LOG_WRN("Server error");
-         return;
+         return unexpected(EBADMSG);
       }
 
       if (type != message_type::image_header_response) {
          LOG_ERR("Bad response: %" PRIu8, static_cast<std::uint8_t>(type));
-         return;
+         return unexpected(EBADMSG);
       }
 
-      const auto mode = static_cast<common_t::waveform_mode>(read<std::uint8_t>());
+      const auto mode = static_cast<common_t::waveform_mode>(mode_raw);
       switch (mode) {
          case it8951::common::waveform_mode::init:
          case it8951::common::waveform_mode::direct_update:
@@ -217,39 +230,46 @@ private:
 
          default:
             LOG_ERR("Bad wave form mode: %d", static_cast<int>(mode));
-            return;
+            return unexpected(EBADMSG);
       }
 
       // x2 because the transmitted image is 4 bytes per pixel
-      const auto image_width = static_cast<std::uint16_t>(read<std::uint16_t>() * 2);
-      const auto image_height = read<std::uint16_t>();
-      const auto num_blocks = read<std::uint16_t>();
+
+      const auto image_width = static_cast<std::uint16_t>(width_raw * 2);
 
       auto &display = hei::display::get();
-      display.begin({.x = 0, .y = 0, .width = image_width, .height = image_height},
-                    {.endianness = common_t::endianness::little,
-                     .pixel_format = common_t::pixel_format::pf4bpp,
-                     .rotation = common_t::rotation::rotate0,
-                     .mode = mode});
+      auto dr = display.begin({.x = 0, .y = 0, .width = image_width, .height = image_height},
+                              {.endianness = common_t::endianness::little,
+                               .pixel_format = common_t::pixel_format::pf4bpp,
+                               .rotation = common_t::rotation::rotate0,
+                               .mode = mode});
+      if (!dr) {
+         return dr;
+      }
 
       LOG_DBG("Image Header: w=%" PRIu16 ", h=%" PRIu16 ", n=%" PRIu16, image_width, image_height, num_blocks);
       for (std::uint16_t block = 0; block < num_blocks; ++block) {
-         type = static_cast<message_type>(read<std::uint8_t>());
+         using block_t = std::tuple<std::uint8_t, std::uint16_t, std::uint16_t>;
+         auto block_res = read_tuple<block_t>();
+         if (!block_res) {
+            return tl::unexpected{response_res.error()};
+         }
+
+         const auto [block_type_raw, uncompressed_size, compressed_size] = *block_res;
+         type = static_cast<message_type>(block_type_raw);
          if (type == message_type::server_error) {
             LOG_WRN("Server error");
-            return;
+            return unexpected(EBADMSG);
          }
 
          if (type != message_type::image_block_response) {
             LOG_ERR("Bad block type: %" PRIu8, static_cast<std::uint8_t>(type));
-            return;
+            return unexpected(EBADMSG);
          }
 
-         const auto uncompressed_size = read<std::uint16_t>();
-         const auto compressed_size = read<std::uint16_t>();
          auto ec = receive(compressed_size);
-         if (ec) {
-            throw_error("Error receiving block", ec.value());
+         if (!ec) {
+            return report_error("Error receiving block", ec.error().value());
          }
 
          const auto res = LZ4_decompress_safe(reinterpret_cast<const char *>(recv_buffer_.data()),
@@ -257,18 +277,21 @@ private:
                                               static_cast<int>(image_buffer_.size()));
          if (res < 0) {
             LOG_ERR("Image block decompression error: %d", res);
-            return;
+            return unexpected(res);
          }
 
          if (res != uncompressed_size) {
             LOG_ERR("Decompressed data size mismatch: %d vs %d", res, static_cast<int>(uncompressed_size));
-            return;
+            return unexpected(EBADMSG);
          }
 
-         display.update({image_buffer_.data(), uncompressed_size});
+         dr = display.update({image_buffer_.data(), uncompressed_size});
+         if (!dr) {
+            return dr;
+         }
       }
 
-      display.end();
+      return display.end();
    }
 
    bool convert_server_address() {
@@ -296,12 +319,46 @@ private:
       return true;
    }
 
+   template <typename Tuple, std::size_t I>
+   bool read_tuple_element(Tuple &t, std::error_code &ec) {
+      using element_t = typename std::tuple_element_t<I, Tuple>;
+      auto res = read<element_t>();
+      if (res) {
+         std::get<I>(t) = res.value();
+         return true;
+      } else {
+         ec = res.error();
+         return false;
+      }
+   }
+
+   template <typename Tuple, std::size_t... I>
+   void_t read_tuple_impl(Tuple &t, std::index_sequence<I...>) {
+      std::error_code ec;
+      const bool success = (read_tuple_element<Tuple, I>(t, ec) && ...);
+      if (!success) {
+         return tl::unexpected{ec};
+      } else {
+         return {};
+      }
+   }
+
+   template <typename Tuple>
+   expected<Tuple> read_tuple() {
+      Tuple res;
+      const auto op_res = read_tuple_impl(res, std::make_index_sequence<std::tuple_size_v<Tuple>>{});
+      if (!op_res) {
+         return tl::unexpected{op_res.error()};
+      }
+      return res;
+   }
+
    template <std::unsigned_integral T>
-   T read() {
+   expected<T> read() {
       constexpr auto size = sizeof(T);
       auto ec = receive(size);
-      if (ec) {
-         throw std::system_error{ec};
+      if (!ec) {
+         return tl::unexpected(ec.error());
       }
 
       if (size == 1) {
@@ -324,7 +381,7 @@ private:
       return result;
    }
 
-   [[nodiscard]] std::error_code receive(std::size_t num_bytes) {
+   [[nodiscard]] void_t receive(std::size_t num_bytes) {
       fd_set read_fds{}, err_fds{};
       timeval tv{};
 
@@ -345,26 +402,24 @@ private:
 
          const int activity = select(socket_ + 1, &read_fds, nullptr, &err_fds, &tv);
          if (activity < 0) {
-            LOG_ERR("Select error: %s", strerror(errno));
-            return std::make_error_code(std::errc{errno});
+            return report_error("Read select error", errno);
          }
 
          if (activity == 0) {
             LOG_ERR("Receive timeout");
-            return std::make_error_code(std::errc::timed_out);
+            return unexpected(ETIMEDOUT);
          }
 
          if (FD_ISSET(socket_, &err_fds)) {
             int error = 0;
             socklen_t len = sizeof(error);
             if (getsockopt(socket_, SOL_SOCKET, SO_ERROR, &error, &len) < 0) {
-               LOG_ERR("Unknown socket error");
-               return std::make_error_code(std::errc::io_error);
+               LOG_ERR("Unknown read socket error");
+               return unexpected(EIO);
             } else if (error != 0) {
-               LOG_ERR("Socket error: %s", strerror(error));
-               return std::make_error_code(std::errc{error});
+               return report_error("Read socket error", error);
             }
-            return std::make_error_code(std::errc::io_error);
+            return unexpected(EIO);
          }
 
          if (!FD_ISSET(socket_, &read_fds)) {
@@ -373,8 +428,8 @@ private:
 
          const ssize_t num_received = ::read(socket_, recv_buffer_.data() + offset, num_bytes - offset);
          if (num_received == 0) {
-            LOG_ERR("Connection closed");
-            return std::make_error_code(std::errc::not_connected);
+            LOG_ERR("Read connection closed");
+            return unexpected(ECONNRESET);
          }
 
          if (num_received > 0) {
@@ -384,13 +439,12 @@ private:
 
          const int error = errno;
          if (error != EWOULDBLOCK && error != EAGAIN) {
-            LOG_ERR("Read error: %s", strerror(error));
-            return std::make_error_code(std::errc{error});
+            return report_error("Read error", error);
          }
       }
    }
 
-   [[nodiscard]] std::error_code send(std::span<std::uint8_t, std::dynamic_extent> payload) const {
+   [[nodiscard]] void_t send(std::span<std::uint8_t, std::dynamic_extent> payload) const {
       fd_set write_fds{}, err_fds{};
       timeval tv{};
 
@@ -411,26 +465,24 @@ private:
 
          const int activity = select(socket_ + 1, nullptr, &write_fds, &err_fds, &tv);
          if (activity < 0) {
-            LOG_ERR("Select error: %s", strerror(errno));
-            return std::make_error_code(std::errc{errno});
+            return report_error("Send select error", errno);
          }
 
          if (activity == 0) {
-            LOG_ERR("Write timeout");
-            return std::make_error_code(std::errc::timed_out);
+            LOG_ERR("Send timeout");
+            return unexpected(ETIMEDOUT);
          }
 
          if (FD_ISSET(socket_, &err_fds)) {
             int error = 0;
             socklen_t len = sizeof(error);
             if (getsockopt(socket_, SOL_SOCKET, SO_ERROR, &error, &len) < 0) {
-               LOG_ERR("Unknown socket error");
-               return std::make_error_code(std::errc::io_error);
+               LOG_ERR("Unknown send socket error");
+               return unexpected(EIO);
             } else if (error != 0) {
-               LOG_ERR("Socket error: %s", strerror(error));
-               return std::make_error_code(std::errc{error});
+               return report_error("Send socket error", error);
             }
-            return std::make_error_code(std::errc::io_error);
+            return unexpected(EIO);
          }
 
          if (!FD_ISSET(socket_, &write_fds)) {
@@ -439,8 +491,8 @@ private:
 
          const ssize_t num_sent = ::send(socket_, payload.data() + offset, payload.size() - offset, 0);
          if (num_sent == 0) {
-            LOG_ERR("Connection closed");
-            return std::make_error_code(std::errc::not_connected);
+            LOG_ERR("Send connection closed");
+            return unexpected(ECONNRESET);
          }
 
          if (num_sent > 0) {
@@ -450,8 +502,7 @@ private:
 
          const int error = errno;
          if (error != EWOULDBLOCK && error != EAGAIN) {
-            LOG_ERR("Read error: %s", strerror(error));
-            return std::make_error_code(std::errc{error});
+            return report_error("Send error", error);
          }
       }
    }

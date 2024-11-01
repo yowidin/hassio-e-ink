@@ -18,5 +18,5 @@ ENV ACCESS_TOKEN=""
 
 EXPOSE 8765
 
-CMD poetry run hei-server --base-url="${BASE_URL}" --screenshot-url="${SCREENSHOT_URL}" --access-token="${ACCESS_TOKEN}" --capture-interval=10
+CMD poetry run hei-server -v --base-url="${BASE_URL}" --screenshot-url="${SCREENSHOT_URL}" --access-token="${ACCESS_TOKEN}" --capture-interval=10
 

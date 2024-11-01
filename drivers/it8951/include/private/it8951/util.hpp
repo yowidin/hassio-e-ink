@@ -12,7 +12,6 @@
 #include <span>
 
 #include <it8951/init.h>
-#include <it8951/error.hpp>
 
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/drivers/spi.h>
@@ -54,29 +53,5 @@ inline it8951_data_t &get_data(const struct device &dev) {
 inline const it8951_config_t &get_config(const struct device &dev) {
    return *reinterpret_cast<const it8951_config_t *>(dev.config);
 }
-
-namespace pin {
-
-void check(const gpio_dt_spec &spec);
-void configure(const gpio_dt_spec &spec, gpio_flags_t extra_flags);
-
-void interrupt_configure(const gpio_dt_spec &spec, gpio_flags_t flags);
-void add_callback(const gpio_dt_spec &spec, gpio_callback &cb);
-
-void set(const gpio_dt_spec &spec, bool logic_high, std::error_code &ec);
-void set(const gpio_dt_spec &spec, bool logic_high);
-bool get(const gpio_dt_spec &spec);
-
-} // namespace pin
-
-namespace spi {
-
-void write(const spi_dt_spec &spec, const spi_buf_set &buf_set);
-void write(const spi_dt_spec &spec, const spi_buf_set &buf_set, std::error_code &ec);
-
-void read(const spi_dt_spec &spec, const spi_buf_set &buf_set);
-void read(const spi_dt_spec &spec, const spi_buf_set &buf_set, std::error_code &ec);
-
-} // namespace spi
 
 } // namespace it8951

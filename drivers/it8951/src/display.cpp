@@ -12,6 +12,7 @@
 LOG_MODULE_DECLARE(it8951, CONFIG_IT8951_LOG_LEVEL);
 
 using namespace it8951;
+using namespace zephyr;
 
 display::display(const device &device)
    : device_{&device}
@@ -20,46 +21,21 @@ display::display(const device &device)
    // Nothing to do here
 }
 
-void display::begin(common::image::area a, common::image::config cfg, std::error_code &ec) {
+void_t display::begin(common::image::area a, common::image::config cfg) {
    current_area_ = a;
    current_config_ = cfg;
-
-   hal::image::begin(*device_, a, cfg, ec);
+   return hal::image::begin(*device_, a, cfg);
 }
 
-void display::begin(common::image::area a, common::image::config cfg) {
-   std::error_code ec;
-   begin(a, cfg, ec);
-   if (ec) {
-      throw std::system_error{ec};
-   }
+void_t display::update(pixel_data_t data) {
+   return hal::write_data_chunked_bursts(*device_, data);
 }
 
-void display::update(pixel_data_t data, std::error_code &ec) {
-   hal::write_data_chunked_bursts(*device_, data, ec);
+void_t display::end() {
+   return hal::image::end(*device_, current_area_, current_config_.mode);
 }
 
-void display::update(pixel_data_t data) {
-   std::error_code ec;
-   update(data, ec);
-   if (ec) {
-      throw std::system_error{ec};
-   }
-}
-
-void display::end(std::error_code &ec) {
-   hal::image::end(*device_, current_area_, current_config_.mode);
-}
-
-void display::end() {
-   std::error_code ec;
-   end(ec);
-   if (ec) {
-      throw std::system_error{ec};
-   }
-}
-
-void display::fill_screen(pixel_func_t generator, common::waveform_mode mode, std::error_code &ec) {
+void_t display::fill_screen(pixel_func_t generator, common::waveform_mode mode) {
    const auto &data = get_data(*device_);
 
    const common::image::area area = {
@@ -77,9 +53,9 @@ void display::fill_screen(pixel_func_t generator, common::waveform_mode mode, st
    };
 
    // Set up
-   begin(area, config, ec);
-   if (ec) {
-      return;
+   auto br = begin(area, config);
+   if (!br) {
+      return br;
    }
 
    // Transfer data
@@ -92,10 +68,9 @@ void display::fill_screen(pixel_func_t generator, common::waveform_mode mode, st
          fill_buffer_[offset++] = static_cast<std::uint8_t>(p0 << 4 | p1); // Big endian 4-bit pixels
 
          if (offset == fill_buffer_.size()) {
-            hal::write_data_chunked_bursts(*device_, fill_buffer_, ec);
-            // LOG_HEXDUMP_INF(fill_buffer_.data(), fill_buffer_.size(), "Fill data");
-            if (ec) {
-               return;
+            auto res = hal::write_data_chunked_bursts(*device_, fill_buffer_);
+            if (!res) {
+               return res;
             }
 
             offset = 0;
@@ -105,38 +80,22 @@ void display::fill_screen(pixel_func_t generator, common::waveform_mode mode, st
 
    // Write the rest of the data
    if (offset != 0) {
-      hal::write_data_chunked_bursts(*device_, {fill_buffer_.data(), offset}, ec);
-      if (ec) {
-         return;
+      auto res = hal::write_data_chunked_bursts(*device_, {fill_buffer_.data(), offset});
+      if (!res) {
+         return res;
       }
    }
 
    // Flush
-   end(ec);
+   return end();
 }
 
-void display::fill_screen(pixel_func_t generator, common::waveform_mode mode) {
-   std::error_code ec;
-   fill_screen(generator, mode, ec);
-   if (ec) {
-      throw std::system_error{ec};
-   }
-}
-
-void display::clear(std::error_code &ec) {
-   fill_screen(
+void_t display::clear() {
+   return fill_screen(
       [](auto x, auto y) {
          return 0xFF;
       },
-      common::waveform_mode::init, ec);
-}
-
-void display::clear() {
-   std::error_code ec;
-   clear(ec);
-   if (ec) {
-      throw std::system_error{ec};
-   }
+      common::waveform_mode::init);
 }
 
 std::uint16_t display::width() const {

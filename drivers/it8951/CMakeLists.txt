@@ -7,8 +7,6 @@ zephyr_library_sources(
     src/display.cpp
     src/hal.cpp
     src/init.cpp
-    src/error.cpp
-    src/util.cpp
 
     src/init.c
 )

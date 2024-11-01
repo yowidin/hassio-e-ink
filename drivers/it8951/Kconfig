@@ -2,7 +2,7 @@ config EPD_IT8951
 	bool "ITE IT8951 Driver"
 	default y
 	depends on DT_HAS_ITE_IT8951_ENABLED
-	depends on SPI && EVENTS && CPP && STD_CPP20 && REQUIRES_FULL_LIBCPP
+	depends on SPI && EVENTS && CPP && REQUIRES_FULL_LIBCPP
 	help
 	  Enable IT8951 driver for electronic paper displays
 

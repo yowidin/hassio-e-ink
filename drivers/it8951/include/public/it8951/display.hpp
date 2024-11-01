@@ -8,15 +8,18 @@
 
 #include <it8951/common.hpp>
 
+#include <zephyr-cpp/expected.hpp>
+
 #include <array>
 #include <cstdint>
 #include <functional>
 #include <span>
-#include <system_error>
 
 #include <zephyr/kernel.h>
 
 namespace it8951 {
+
+using void_t = zephyr::void_t;
 
 class display {
 public:
@@ -36,20 +39,15 @@ public:
    display &operator=(display &&) = default;
 
 public:
-   void begin(common::image::area a, common::image::config cfg, std::error_code &ec);
-   void begin(common::image::area a, common::image::config cfg);
+   void_t begin(common::image::area a, common::image::config cfg);
 
-   void update(pixel_data_t data, std::error_code &ec);
-   void update(pixel_data_t data);
+   void_t update(pixel_data_t data);
 
-   void end(std::error_code &ec);
-   void end();
+   void_t end();
 
-   void fill_screen(pixel_func_t generator, common::waveform_mode mode, std::error_code &ec);
-   void fill_screen(pixel_func_t generator, common::waveform_mode mode);
+   void_t fill_screen(pixel_func_t generator, common::waveform_mode mode);
 
-   void clear(std::error_code &ec);
-   void clear();
+   void_t clear();
 
    std::uint16_t width() const;
    std::uint16_t height() const;

@@ -6,8 +6,10 @@
 
 #pragma once
 
+#include <hei/common.hpp>
+
 namespace hei::led {
 
-void set_state(bool desired);
+void_t set_state(bool desired);
 
 } // namespace hei::led

@@ -3,6 +3,9 @@ manifest:
     - name: zephyrproject-rtos
       url-base: https://github.com/zephyrproject-rtos
 
+    - name: TartanLlama
+      url-base: https://github.com/TartanLlama
+
   projects:
     - name: zephyr
       remote: zephyrproject-rtos
@@ -15,3 +18,9 @@ manifest:
       remote: zephyrproject-rtos
       revision: 11b8a1e22fa651b524494e55d22b69d3d9cebcfd
       path: modules/lib/lz4
+
+    # Backport the expected library
+    - name: expected
+      remote: TartanLlama
+      revision: v1.1.0
+      path: modules/lib/expected

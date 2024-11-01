@@ -1,0 +1,15 @@
+config ZEPHYR_CPP
+	bool "Zephyr C++ wrappers"
+	default y
+	depends on CPP && REQUIRES_FULL_LIBCPP
+	help
+	  Enable Zephyr C++ wrappers
+
+if ZEPHYR_CPP
+
+    module = ZEPHYR_CPP
+    module-dep = LOG
+    module-str = zephyr-cpp
+    source "subsys/logging/Kconfig.template.log_config"
+
+endif

@@ -5,8 +5,10 @@
  */
 #pragma once
 
+#include <hei/common.hpp>
+
 namespace hei::dns::server {
 
-void start();
+void_t start();
 
 } // namespace hei::dns::server

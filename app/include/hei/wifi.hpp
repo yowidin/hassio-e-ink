@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include <hei/common.hpp>
+
 #include <zephyr/net/wifi.h>
 #include <zephyr/net/wifi_mgmt.h>
 
@@ -50,7 +52,7 @@ using network_list_handler_t = std::function<void(const hei::wifi::network_list_
  * Ensure there is an active network configuration (either connected to a network, or an AP is configured to accept
  * clients).
  */
-void setup();
+void_t setup();
 
 //! @return true if hosting an access point, false otherwise (client)
 bool is_hosting();
@@ -60,6 +62,6 @@ std::string_view mac_address();
 
 //! Call the @ref cb handler with the current list of discovered networks.
 //! Use this roundabout way to avoid fiddling with the mutex or making a copy.
-void with_nwtwork_list(const network_list_handler_t &cb);
+void with_network_list(const network_list_handler_t &cb);
 
 } // namespace hei::wifi

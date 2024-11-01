@@ -25,6 +25,28 @@ namespace {
 
 const device *uart_dev = DEVICE_DT_GET(DT_NODELABEL(uart0));
 
+namespace uart {
+
+void suspend() {
+   LOG_DBG("Suspending shutdown UART");
+
+   const int err = pm_device_action_run(uart_dev, PM_DEVICE_ACTION_SUSPEND);
+   if (err < 0 && err != -EALREADY) {
+      LOG_ERR("Error suspending shutdown UART: %d", err);
+   }
+}
+
+void resume() {
+   LOG_DBG("Resuming shutdown UART");
+
+   const int err = pm_device_action_run(uart_dev, PM_DEVICE_ACTION_RESUME);
+   if (err < 0 && err != -EALREADY) {
+      LOG_ERR("Error resuming shutdown UART: %d", err);
+   }
+}
+
+} // namespace uart
+
 extern "C" {
 
 int init_uart(void) {
@@ -33,6 +55,7 @@ int init_uart(void) {
       return -ENODEV;
    }
 
+   uart::suspend();
    return 0;
 }
 
@@ -188,28 +211,6 @@ private:
 };
 
 } // namespace
-
-namespace uart {
-
-void suspend() {
-   LOG_DBG("Suspending shutdown UART");
-
-   const int err = pm_device_action_run(uart_dev, PM_DEVICE_ACTION_SUSPEND);
-   if (err < 0 && err != -EALREADY) {
-      LOG_ERR("Error suspending shutdown UART: %d", err);
-   }
-}
-
-void resume() {
-   LOG_DBG("Resuming shutdown UART");
-
-   const int err = pm_device_action_run(uart_dev, PM_DEVICE_ACTION_RESUME);
-   if (err < 0 && err != -EALREADY) {
-      LOG_ERR("Error resuming shutdown UART: %d", err);
-   }
-}
-
-} // namespace uart
 
 std::chrono::seconds power_ic::shutdown::get_sleep_duration() {
    // While booting up, the ESP32 shortly toggles the UART pin, skip this by sleeping half a second

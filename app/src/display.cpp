@@ -130,16 +130,15 @@ int shell_do_fill(const shell *sh, size_t argc, const char **argv) {
 
    auto width = display.width();
 
-   std::error_code ec;
-   ::display.fill_screen(
+   auto fr = ::display.fill_screen(
       [&](auto x, auto y) -> std::uint8_t {
          const auto idx = ((width * y) + x);
          return as_bytes[idx % as_bytes.size()];
       },
-      mode, ec);
+      mode);
 
-   if (ec) {
-      shell_error(sh, "Error filling the screen: %s", ec.message().c_str());
+   if (!fr) {
+      shell_error(sh, "Error filling the screen: %s", fr.error().message().c_str());
       return -EINVAL;
    }
 
@@ -151,11 +150,9 @@ int shell_do_clear(const shell *sh, size_t argc, const char **argv) {
    ARG_UNUSED(argc);
    ARG_UNUSED(argv);
 
-   std::error_code ec;
-   ::display.clear(ec);
-
-   if (ec) {
-      shell_error(sh, "Error cleaning screen: %s", ec.message().data());
+   auto cr = ::display.clear();
+   if (!cr) {
+      shell_error(sh, "Error cleaning screen: %s", cr.error().message().data());
       return -1;
    }
 

@@ -26,9 +26,12 @@ def download_and_save(host: str, port: int):
     num_blocks = header[4]
     print(f't={message_type}, u={update_type}, w={width}, h={height}, n={num_blocks}')
 
+    total_received = 0
     image_data = b''
     for i in range(num_blocks):
         block_header = sock.recv(5)
+        total_received += len(block_header)
+
         block_header_data = struct.unpack('<BHH', block_header)
         message_type = block_header_data[0]
         if message_type != 0x12:
@@ -42,6 +45,8 @@ def download_and_save(host: str, port: int):
         if not chunk:
             raise ConnectionError("Socket connection broken")
 
+        total_received += len(chunk)
+
         decompressed = lz4.block.decompress(chunk, uncompressed_size=uncompressed_size)
         if len(decompressed) != uncompressed_size:
             raise ConnectionError(f"Bad image data: {len(decompressed)} vs {uncompressed_size}")
@@ -50,6 +55,7 @@ def download_and_save(host: str, port: int):
 
     sock.close()
 
+    print(f'Total received: {total_received}')
     return image_data, width, height
 
 

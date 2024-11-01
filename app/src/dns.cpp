@@ -19,7 +19,6 @@ LOG_MODULE_REGISTER(hei_dns, CONFIG_APP_LOG_LEVEL);
 #include <zephyr/net/socket.h>
 
 #include <cstdint>
-#include <system_error>
 
 namespace {
 
@@ -34,7 +33,7 @@ enum event : std::uint32_t {
 
 K_EVENT_DEFINE(status)
 
-auto last_error = ATOMIC_INIT(0);
+atomic_t last_error = ATOMIC_INIT(0);
 
 constexpr std::uint16_t port = 53;
 constexpr int max_message_len = 512;
@@ -73,7 +72,7 @@ void dns_server_thread(void *p1, void *p2, void *p3) {
    int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
    if (sock < 0) {
       LOG_ERR("Failed to create socket: %d", sock);
-      dns::last_error = sock;
+      atomic_set(&dns::last_error, sock);
       k_event_set(&::dns::status, ::dns::event::error);
       return;
    }
@@ -85,7 +84,7 @@ void dns_server_thread(void *p1, void *p2, void *p3) {
 
    if (auto err = bind(sock, reinterpret_cast<const sockaddr *>(&server_addr), sizeof(server_addr)) < 0) {
       LOG_ERR("Failed to bind to port %" PRIu16 ": %d", dns::port, err);
-      dns::last_error = err;
+      atomic_set(&dns::last_error, err);
       close(sock);
       k_event_set(&::dns::status, ::dns::event::error);
       return;
@@ -95,7 +94,7 @@ void dns_server_thread(void *p1, void *p2, void *p3) {
    auto iface = net_if_get_default();
    if (!iface) {
       LOG_ERR("Could not find default interface");
-      dns::last_error = ENETDOWN;
+      atomic_set(&dns::last_error, -ENETDOWN);
       close(sock);
       k_event_set(&::dns::status, ::dns::event::error);
       return;
@@ -176,14 +175,14 @@ K_THREAD_DEFINE(dns_server_id,
 
 namespace hei::dns::server {
 
-void start() {
+void_t start() {
 #if CONFIG_APP_DNS_SERVER
    k_event_set(&::dns::status, ::dns::event::start);
 
    auto events = k_event_wait(&::dns::status, ::dns::event::running | ::dns::event::error, false, K_FOREVER);
    if ((events & ::dns::event::running) != ::dns::event::running) {
       LOG_ERR("Error starting DNS server");
-      throw std::system_error{std::make_error_code(std::errc{::dns::last_error})};
+      return zephyr::unexpected((int)atomic_get(&::dns::last_error));
    }
 
    LOG_INF("DNS server started");
@@ -191,6 +190,7 @@ void start() {
    // Probably because the DHCPv4 server doesn't allow us to set a DNS server, so no captive portal for us :'(
    LOG_ERR("DNS server unsupported");
 #endif
+   return {};
 }
 
 } // namespace hei::dns::server

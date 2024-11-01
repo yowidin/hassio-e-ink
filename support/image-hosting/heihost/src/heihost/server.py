@@ -194,7 +194,7 @@ class Server:
     async def _handle_get_image(self, reader, writer):
         request = await GetImageRequest.read(reader, self.timeout)
 
-        Log.debug(f"Get image request: {request}")
+        Log.info(f"Get image request: {request}")
 
         # TODO: Post fuel gauge values into MQTT
 
