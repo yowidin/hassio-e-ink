@@ -44,7 +44,7 @@ config APP_NETWORK_SCAN_MAX_RESULTS
 
 config APP_IMAGE_CLIENT_THREAD_STACK_SIZE
     int "Image client thread stack size"
-    default 2048
+    default 4096
 
 config APP_IMAGE_CLIENT_THREAD_PRIORITY
     int "Image client thread priority"

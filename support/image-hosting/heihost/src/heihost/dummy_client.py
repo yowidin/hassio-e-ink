@@ -16,14 +16,15 @@ def download_and_save(host: str, port: int):
     sock.send(struct.pack('<BBIIBI', 0x10, 1, 55, 0, 10, 3300000))
 
     # Receive the size of the image
-    header_data = sock.recv(7)
-    header = struct.unpack('<BHHH', header_data)
+    header_data = sock.recv(8)
+    header = struct.unpack('<BBHHH', header_data)
 
     message_type = header[0]
-    width = header[1]
-    height = header[2]
-    num_blocks = header[3]
-    print(f't={message_type}, w={width}, h={height}, n={num_blocks}')
+    update_type = header[1]
+    width = header[2]
+    height = header[3]
+    num_blocks = header[4]
+    print(f't={message_type}, u={update_type}, w={width}, h={height}, n={num_blocks}')
 
     image_data = b''
     for i in range(num_blocks):

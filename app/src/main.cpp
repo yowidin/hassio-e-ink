@@ -49,10 +49,6 @@ int main() {
 
    setup_connectivity();
 
-   // k_sleep(K_MSEC(500));
-
-   // TODO: Fuel gauge
-
    hei::http::server::start();
    if (!hei::wifi::is_hosting()) {
       hei::image_client::start();

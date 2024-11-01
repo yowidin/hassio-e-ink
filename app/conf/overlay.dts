@@ -66,14 +66,15 @@
 	 * This won't work with ESP32 SPI, so we have to assign CS to a dummy pin and control the CS line manually.
 	 */
 	cs-gpios = <&gpio0 15 GPIO_ACTIVE_LOW>;
+	dma-enabled;
 
 	display: display@0 {
 		compatible = "ite,it8951";
 		status = "okay";
 		reg = <0>;
 
-		// At 8MHz the SPI clock became unstable, and the data could not be delivered reliably
-		spi-max-frequency = <DT_FREQ_M(2)>;
+		// At 12 MHz the random number generator results in division by zero -_-
+		spi-max-frequency = <DT_FREQ_M(11)>;
 
 		// There can only be 32 pins per GPIO instance.
 		// We are using pin #34, so we have to go into gpio1 range -> gpio1 pin 2
@@ -83,6 +84,10 @@
 		cs-gpios = <&gpio0 26 GPIO_ACTIVE_LOW>;
 		vcom = <1710>; // As printed on the connector (-1.71V -> 1710mV)
 	};
+};
+
+&spi3 {
+	status = "disabled";
 };
 
 &i2c0 {

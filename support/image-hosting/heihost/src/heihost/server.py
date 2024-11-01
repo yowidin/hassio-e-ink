@@ -18,7 +18,7 @@ class Message:
         # fg_valid: u8, runtime_to_empty: u32, runtime_to_full: u32, charge_percentage: u8, voltage: u32
         GetImageRequest = 0x10
 
-        # width: u16, height: u16, num_blocks: u16
+        # update_type: u8, width: u16, height: u16, num_blocks: u16
         ImageHeaderResponse = 0x11
 
         # original_size: u16, compressed_size: u16, compressed_data: u8 * compressed_size
@@ -60,10 +60,18 @@ class GetImageRequest(Message):
 
 
 class ImageHeaderMessage(Message):
-    """ | Message Type | Width | Height | Num image blocks | """
+    """ | Message Type | Update Type | Width | Height | Num image blocks | """
 
-    def __init__(self, image: HostedImage):
-        super().__init__(Message.Type.ImageHeaderResponse, U16(image.width), U16(image.height), U16(len(image.blocks)))
+    class UpdateType(Enum):
+        Init = 0
+        DU16 = 1
+        GC16 = 2
+        GL16 = 3
+        GLR16 = 4
+
+    def __init__(self, update_type: 'ImageHeaderMessage.UpdateType', image: HostedImage):
+        super().__init__(Message.Type.ImageHeaderResponse, U8(update_type.value), U16(image.width), U16(image.height),
+                         U16(len(image.blocks)))
 
 
 class ImageBlockMessage(Message):
@@ -183,8 +191,6 @@ class Server:
         await ServerErrorMessage().write(writer)
         await asyncio.wait_for(writer.drain(), timeout=self.server_config.client_timeout)
 
-    async def _handle_get_image(self, _, writer):
-        Log.debug("Get image request")
     async def _handle_get_image(self, reader, writer):
         request = await GetImageRequest.read(reader, self.timeout)
 
@@ -193,6 +199,7 @@ class Server:
         # TODO: Post fuel gauge values into MQTT
 
         # TODO: Decide on refresh type and post it as a parameter
+        update_type = ImageHeaderMessage.UpdateType.GC16
 
         screenshot = self.image_capture.latest_screenshot
         if screenshot is None:
@@ -200,7 +207,7 @@ class Server:
             return await self._send_server_error(writer)
 
         image = await HostedImage.from_image(self.image_capture.latest_screenshot)
-        await ImageHeaderMessage(image).write(writer)
+        await ImageHeaderMessage(update_type, image).write(writer)
 
         for block in image.blocks:
             await ImageBlockMessage(block).write(writer)

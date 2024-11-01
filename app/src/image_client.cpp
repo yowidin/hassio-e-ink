@@ -37,6 +37,7 @@ namespace {
 enum client_event_t {
    ce_start = BIT(0),
    ce_manual_fetch = BIT(1),
+   ce_stop = BIT(2),
 };
 
 K_EVENT_DEFINE(client_events)
@@ -152,7 +153,10 @@ private:
             k_sleep(K_MSEC(100));
          }
 
-         (void)k_event_wait(&client_events, ce_manual_fetch, true, K_SECONDS(sleep_duration.count()));
+         auto events = k_event_wait(&client_events, ce_manual_fetch | ce_stop, true, K_SECONDS(sleep_duration.count()));
+         if (events & ce_stop) {
+            k_event_wait(&client_events, ce_start, true, K_FOREVER);
+         }
       }
    }
 
@@ -162,6 +166,8 @@ private:
    }
 
    void fetch_image() {
+      namespace common_t = it8951::common;
+
       if ((socket_ = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
          throw_error("Socket creation error", errno);
       }
@@ -188,7 +194,7 @@ private:
          throw_error("Error sending request", ec.value());
       }
 
-      // Read header: message_type: u8, width: u16, height: u16, num_blocks: u16
+      // Read header: message_type: u8, update_type: u8, width: u16, height: u16, num_blocks: u16
       auto type = static_cast<message_type>(read<std::uint8_t>());
       if (type == message_type::server_error) {
          LOG_WRN("Server error");
@@ -200,13 +206,31 @@ private:
          return;
       }
 
+      const auto mode = static_cast<common_t::waveform_mode>(read<std::uint8_t>());
+      switch (mode) {
+         case it8951::common::waveform_mode::init:
+         case it8951::common::waveform_mode::direct_update:
+         case it8951::common::waveform_mode::grayscale_clearing:
+         case it8951::common::waveform_mode::grayscale_limited:
+         case it8951::common::waveform_mode::grayscale_limited_reduced:
+            break;
+
+         default:
+            LOG_ERR("Bad wave form mode: %d", static_cast<int>(mode));
+            return;
+      }
+
       // x2 because the transmitted image is 4 bytes per pixel
       const auto image_width = static_cast<std::uint16_t>(read<std::uint16_t>() * 2);
       const auto image_height = read<std::uint16_t>();
       const auto num_blocks = read<std::uint16_t>();
 
-      // TODO: get refresh type from the server
-      hei::display::begin(image_width, image_height);
+      auto &display = hei::display::get();
+      display.begin({.x = 0, .y = 0, .width = image_width, .height = image_height},
+                    {.endianness = common_t::endianness::little,
+                     .pixel_format = common_t::pixel_format::pf4bpp,
+                     .rotation = common_t::rotation::rotate0,
+                     .mode = mode});
 
       LOG_DBG("Image Header: w=%" PRIu16 ", h=%" PRIu16 ", n=%" PRIu16, image_width, image_height, num_blocks);
       for (std::uint16_t block = 0; block < num_blocks; ++block) {
@@ -241,10 +265,10 @@ private:
             return;
          }
 
-         hei::display::update({image_buffer_.data(), uncompressed_size});
+         display.update({image_buffer_.data(), uncompressed_size});
       }
 
-      hei::display::end(image_width, image_height, hei::display::refresh::full);
+      display.end();
    }
 
    bool convert_server_address() {
@@ -476,18 +500,12 @@ int shell_do_fetch(const shell *sh, size_t argc, const char **argv) {
    return 0;
 }
 
-int shell_do_clear(const shell *sh, size_t argc, const char **argv) {
+int shell_do_stop(const shell *sh, size_t argc, const char **argv) {
    ARG_UNUSED(sh);
    ARG_UNUSED(argc);
    ARG_UNUSED(argv);
 
-   try {
-      hei::display::clear();
-   } catch (const std::exception &e) {
-      shell_error(sh, "Error cleaning screen: %s", e.what());
-      return -1;
-   }
-
+   k_event_post(&client_events, ce_stop);
    return 0;
 }
 
@@ -505,7 +523,7 @@ int dummy_help(const shell *sh, size_t argc, const char **argv) {
 
 SHELL_STATIC_SUBCMD_SET_CREATE(image_client_commands,
                                SHELL_CMD_ARG(fetch, NULL, "Fetch an image", shell_do_fetch, 1, 0),
-                               SHELL_CMD_ARG(clear, NULL, "Clear the screen", shell_do_clear, 1, 0),
+                               SHELL_CMD_ARG(stop, NULL, "Stop the image client", shell_do_stop, 1, 0),
                                SHELL_SUBCMD_SET_END);
 
 SHELL_SUBCMD_ADD((hei), image_client, &image_client_commands, "Image Client shell", dummy_help, 2, 0);
