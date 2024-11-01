@@ -1,5 +1,5 @@
 /**
- * @file   driver.c
+ * @file   init.cpp
  * @author Dennis Sitelew
  * @date   Jul. 25, 2024
  */
@@ -7,7 +7,6 @@
 #include <zephyr/devicetree.h>
 #include <zephyr/logging/log.h>
 
-#include <it8951/driver.hpp>
 #include <it8951/error.hpp>
 #include <it8951/hal.hpp>
 #include <it8951/util.hpp>
@@ -91,7 +90,7 @@ void reset(const it8951_config_t &cfg) {
 }
 
 void read_device_info(const struct device &dev, it8951_device_info_t &info) {
-   hal::write_command(dev, it8951::command_t::get_device_info);
+   hal::write_command(dev, hal::command::get_device_info);
 
    std::array<std::uint16_t, 20> rx_buffer = {};
    hal::read_data(dev, rx_buffer);
@@ -165,6 +164,9 @@ int it8951_init(const struct device *dev) {
       try_init(*dev);
    } catch (const std::exception &e) {
       LOG_ERR("IT8951 initialization error: %s", e.what());
+      return -ENODEV;
+   } catch (...) {
+      LOG_ERR("IT8951 unexpected initialization error");
       return -ENODEV;
    }
    return 0;

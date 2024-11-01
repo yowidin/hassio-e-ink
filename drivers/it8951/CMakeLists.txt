@@ -4,10 +4,11 @@ zephyr_library_include_directories(include/private)
 zephyr_include_directories(include/public)
 
 zephyr_library_sources(
-        src/it8951.cpp
-        src/hal.cpp
-        src/driver.cpp
-        src/error.cpp
-        src/util.cpp
-        src/init.c
+    src/display.cpp
+    src/hal.cpp
+    src/init.cpp
+    src/error.cpp
+    src/util.cpp
+
+    src/init.c
 )

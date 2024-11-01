@@ -61,6 +61,7 @@ typedef struct it8951_data {
    it8951_device_info_t info;
 } it8951_data_t;
 
+//! @note Delegates the actual initialization to the init.cpp module
 int it8951_init(const struct device *dev);
 
 #ifdef __cplusplus

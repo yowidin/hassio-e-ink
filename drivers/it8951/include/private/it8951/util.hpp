@@ -72,7 +72,10 @@ bool get(const gpio_dt_spec &spec);
 namespace spi {
 
 void write(const spi_dt_spec &spec, const spi_buf_set &buf_set);
+void write(const spi_dt_spec &spec, const spi_buf_set &buf_set, std::error_code &ec);
+
 void read(const spi_dt_spec &spec, const spi_buf_set &buf_set);
+void read(const spi_dt_spec &spec, const spi_buf_set &buf_set, std::error_code &ec);
 
 } // namespace spi
 

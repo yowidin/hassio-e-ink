@@ -50,11 +50,10 @@ void set(const gpio_dt_spec &spec, bool logic_high, std::error_code &ec) {
       LOG_ERR("Error setting pin %d of %s to %d: %d", static_cast<int>(spec.pin), spec.port->name, value, err);
       ec = error::hal_error;
    }
-   ec = error::success;
 }
 
 void set(const gpio_dt_spec &spec, bool logic_high) {
-   std::error_code ec;
+   std::error_code ec{error::success};
    set(spec, logic_high, ec);
    if (ec) {
       throw std::system_error(ec);
@@ -80,17 +79,33 @@ bool get(const gpio_dt_spec &spec) {
 
 namespace spi {
 
-void write(const spi_dt_spec &spec, const spi_buf_set &buf_set) {
+void write(const spi_dt_spec &spec, const spi_buf_set &buf_set, std::error_code &ec) {
    if (auto err = spi_write_dt(&spec, &buf_set)) {
       LOG_ERR("SPI write failed on %s: %d", spec.bus->name, err);
-      throw std::system_error(error::transport_error);
+      ec = error::transport_error;
+   }
+}
+
+void write(const spi_dt_spec &spec, const spi_buf_set &buf_set) {
+   std::error_code ec{error::success};
+   write(spec, buf_set, ec);
+   if (ec) {
+      throw std::system_error{ec};
+   }
+}
+
+void read(const spi_dt_spec &spec, const spi_buf_set &buf_set, std::error_code &ec) {
+   if (auto err = spi_read_dt(&spec, &buf_set)) {
+      LOG_ERR("SPI read failed on %s: %d", spec.bus->name, err);
+      ec = error::transport_error;
    }
 }
 
 void read(const spi_dt_spec &spec, const spi_buf_set &buf_set) {
-   if (auto err = spi_read_dt(&spec, &buf_set)) {
-      LOG_ERR("SPI read failed on %s: %d", spec.bus->name, err);
-      throw std::system_error(error::transport_error);
+   std::error_code ec{error::success};
+   read(spec, buf_set, ec);
+   if (ec) {
+      throw std::system_error{ec};
    }
 }
 
