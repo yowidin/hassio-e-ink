@@ -73,8 +73,8 @@
 		status = "okay";
 		reg = <0>;
 
-		// At more than 8 MHz the data is corrupted
-		spi-max-frequency = <DT_FREQ_M(8)>;
+		// At more than 6 MHz the data is corrupted
+		spi-max-frequency = <DT_FREQ_M(6)>;
 
 		// There can only be 32 pins per GPIO instance.
 		// We are using pin #34, so we have to go into gpio1 range -> gpio1 pin 2
