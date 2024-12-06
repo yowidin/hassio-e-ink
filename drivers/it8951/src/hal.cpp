@@ -381,12 +381,23 @@ void_t begin(const device &dev, const common::image::area &area, const common::i
 }
 
 void_t end(const device &dev, const common::image::area &area, const common::waveform_mode mode) {
-   return load_image_end(dev).and_then([&] {
-      return display_area(dev, area, mode).and_then([&] {
-         // Make sure we exit this function with the display in the ready state
+   return load_image_end(dev)
+      .and_then([&] {
+         return display_area(dev, area, mode);
+      })
+      .and_then([&] {
+         // Make sure we exit this function with the display in the ready state this way we can be sure that the
+         // panel has finished rendering the new image.
+         return wait_for_ready_state(dev);
+      })
+      .and_then([&] {
+         // Afterward we put the driver board into sleep mode and again wait until it is ready. This way we can avoid
+         // a potential burn-out of the driver board itself.
+         return system::sleep(dev);
+      })
+      .and_then([&] {
          return wait_for_ready_state(dev);
       });
-   });
 }
 
 } // namespace image

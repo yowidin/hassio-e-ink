@@ -183,6 +183,9 @@ expected<void> try_init(const struct device &dev) {
             "\tLUT Version: %s",
             info.panel_width, info.panel_height, info.image_buffer_address, info.it8951_version, info.lut_version);
          return {};
+      })
+      .and_then([&] {
+         return hal::system::sleep(dev);
       });
 }
 

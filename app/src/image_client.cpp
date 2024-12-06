@@ -144,6 +144,12 @@ private:
             LOG_ERR("Image client error: %s", res.error().message().c_str());
          }
 
+         // In any case try putting the display into the sleep mode to avoid potential issues with the driver board
+         res = shutdown_display();
+         if (!res) {
+            LOG_ERR("Display shutdown error: %s", res.error().message().c_str());
+         }
+
          if (socket_) {
             if (close(socket_)) {
                LOG_ERR("Close error: %s", strerror(errno));
@@ -234,8 +240,9 @@ private:
       }
 
       // x2 because the transmitted image is 4 bytes per pixel
-
       const auto image_width = static_cast<std::uint16_t>(width_raw * 2);
+
+      LOG_DBG("Image Header: w=%" PRIu16 ", h=%" PRIu16 ", n=%" PRIu16, image_width, image_height, num_blocks);
 
       auto &display = hei::display::get();
       auto dr = display.begin({.x = 0, .y = 0, .width = image_width, .height = image_height},
@@ -247,7 +254,6 @@ private:
          return dr;
       }
 
-      LOG_DBG("Image Header: w=%" PRIu16 ", h=%" PRIu16 ", n=%" PRIu16, image_width, image_height, num_blocks);
       for (std::uint16_t block = 0; block < num_blocks; ++block) {
          using block_t = std::tuple<std::uint8_t, std::uint16_t, std::uint16_t>;
          auto block_res = read_tuple<block_t>();
@@ -267,8 +273,7 @@ private:
             return unexpected(EBADMSG);
          }
 
-         auto ec = receive(compressed_size);
-         if (!ec) {
+         if (auto ec = receive(compressed_size); !ec) {
             return report_error("Error receiving block", ec.error().value());
          }
 
@@ -292,6 +297,11 @@ private:
       }
 
       return display.end();
+   }
+
+   static void_t shutdown_display() {
+      auto &display = hei::display::get();
+      return display.shutdown();
    }
 
    bool convert_server_address() {

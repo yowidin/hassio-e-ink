@@ -98,6 +98,10 @@ void_t display::clear() {
       common::waveform_mode::init);
 }
 
+void_t display::shutdown() {
+   return hal::system::sleep(*device_);
+}
+
 std::uint16_t display::width() const {
    return get_data(*device_).info.panel_width;
 }

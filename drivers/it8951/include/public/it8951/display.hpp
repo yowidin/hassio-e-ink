@@ -48,6 +48,8 @@ public:
    void_t fill_screen(pixel_func_t generator, common::waveform_mode mode);
 
    void_t clear();
+   
+   void_t shutdown();
 
    std::uint16_t width() const;
    std::uint16_t height() const;
