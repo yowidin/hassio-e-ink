@@ -97,7 +97,7 @@ namespace system {
 
 void_t run(const device &dev);
 void_t sleep(const device &dev);
-void_t power(const device &dev, bool is_on);
+[[deprecated]] void_t power(const device &dev, bool is_on);
 
 } // namespace system
 

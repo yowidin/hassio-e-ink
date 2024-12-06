@@ -348,7 +348,16 @@ void_t sleep(const device &dev) {
 }
 
 void_t power(const device &dev, bool is_on) {
+#define DEPRECATE_POWER 1
+#ifdef DEPRECATE_POWER
+   ARG_UNUSED(dev);
+   ARG_UNUSED(is_on);
+
+   LOG_ERR("You should not use the power function directly, it might fry your board!");
+   return unexpected(EINVAL);
+#else
    return write_command(dev, command::epd_power, {{u16(is_on ? 1 : 0)}});
+#endif
 }
 
 } // namespace system
@@ -356,10 +365,7 @@ void_t power(const device &dev, bool is_on) {
 namespace image {
 
 void_t begin(const device &dev, const common::image::area &area, const common::image::config &config) {
-   return system::power(dev, true)
-      .and_then([&] {
-         return system::run(dev);
-      })
+   return system::run(dev)
       .and_then([&] {
          return wait_for_display_ready(dev);
       })
