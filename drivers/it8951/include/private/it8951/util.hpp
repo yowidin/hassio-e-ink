@@ -13,9 +13,6 @@
 
 #include <it8951/init.h>
 
-#include <zephyr/drivers/gpio.h>
-#include <zephyr/drivers/spi.h>
-
 namespace it8951 {
 
 //! Span type definition (IT8951 has a word size of 2)
@@ -46,12 +43,12 @@ constexpr std::uint16_t to_host(std::uint16_t value) {
 
 } // namespace encoding
 
-inline it8951_data_t &get_data(const struct device &dev) {
-   return *reinterpret_cast<it8951_data_t *>(dev.data);
+inline it8951_data_t &get_data(const device &dev) {
+   return *static_cast<it8951_data_t *>(dev.data);
 }
 
-inline const it8951_config_t &get_config(const struct device &dev) {
-   return *reinterpret_cast<const it8951_config_t *>(dev.config);
+inline const it8951_config_t &get_config(const device &dev) {
+   return *static_cast<const it8951_config_t *>(dev.config);
 }
 
 } // namespace it8951

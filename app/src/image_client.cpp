@@ -68,6 +68,7 @@ private:
          auto it = payload.begin();
          write(it, static_cast<std::uint8_t>(message_type::get_image_request));
 
+         // ReSharper disable once CppUseStructuredBinding
          const auto fg = hei_fuel_gauge_get();
          write(it, static_cast<std::uint8_t>(fg.valid));
          if (!fg.valid) {
@@ -83,7 +84,7 @@ private:
 
    private:
       template <std::unsigned_integral T>
-      void write(array_t::iterator &it, const T value) {
+      static void write(array_t::iterator &it, const T value) {
          constexpr auto size = sizeof(T);
          if (size == 1) {
             // Only one byte - just write it
@@ -113,31 +114,41 @@ public:
       ARG_UNUSED(p2);
       ARG_UNUSED(p3);
 
-      auto client = static_cast<image_client *>(p1);
+      const auto client = static_cast<image_client *>(p1);
       client->main();
    }
 
 private:
-   void main() {
+   static void request_shutdown(const std::chrono::seconds sleep_duration) {
+      for (int i = 0; i < CONFIG_APP_IMAGE_CLIENT_NUM_SHUTDOWN_REQUESTS; ++i) {
+         hei::shutdown::request(sleep_duration);
+         k_sleep(K_MSEC(CONFIG_APP_IMAGE_CLIENT_SHUTDOWN_REQUEST_DELAY_MS));
+      }
+   }
+
+   [[noreturn]] void main() {
       (void)k_event_wait(&client_events, ce_start, false, K_FOREVER);
 
       const auto interval_opt = hei::settings::image_server::refresh_interval();
 
-      std::chrono::seconds sleep_duration{60};
+      std::chrono::seconds sleep_duration{CONFIG_APP_IMAGE_CLIENT_DEFAULT_SLEEP_DURATION_SECONDS};
       if (interval_opt) {
          sleep_duration = *interval_opt;
       }
 
-      if (!convert_server_address()) {
-         return;
-      }
-
       while (true) {
+         if (!convert_server_address()) {
+            request_shutdown(sleep_duration);
+            continue;
+         }
+
          const auto start = k_uptime_get();
 
          auto res = fetch_image();
          if (res) {
             const auto end = k_uptime_get();
+
+            // ReSharper disable once CppDFAUnusedValue CppDFAUnreadVariable CppDeclaratorNeverUsed
             const auto delta = end - start;
             LOG_INF("Received image in %" PRIi64 " ms", delta);
          } else {
@@ -164,14 +175,17 @@ private:
             k_sleep(K_MSEC(100));
          }
 
-         auto events = k_event_wait(&client_events, ce_manual_fetch | ce_stop, true, K_SECONDS(sleep_duration.count()));
-         if (events & ce_stop) {
+         if (const auto events =
+                k_event_wait(&client_events, ce_manual_fetch | ce_stop, true, K_SECONDS(sleep_duration.count()));
+             events & ce_stop) {
             k_event_wait(&client_events, ce_start, true, K_FOREVER);
          }
       }
+
+      // ReSharper disable once CppDFAUnreachableCode
    }
 
-   static auto report_error(const char *message, int error) {
+   static auto report_error(const char *message, const int error) {
       LOG_ERR("%s: %s", message, strerror(error));
       return unexpected(error);
    }
@@ -190,7 +204,7 @@ private:
       LOG_INF("Connected to server");
 
       // Set socket to non-blocking mode
-      int flags = fcntl(socket_, F_GETFL, 0);
+      const int flags = fcntl(socket_, F_GETFL, 0);
       if (flags < 0) {
          return report_error("Error getting socket flags", errno);
       }
@@ -331,9 +345,8 @@ private:
 
    template <typename Tuple, std::size_t I>
    bool read_tuple_element(Tuple &t, std::error_code &ec) {
-      using element_t = typename std::tuple_element_t<I, Tuple>;
-      auto res = read<element_t>();
-      if (res) {
+      using element_t = std::tuple_element_t<I, Tuple>;
+      if (auto res = read<element_t>()) {
          std::get<I>(t) = res.value();
          return true;
       } else {
@@ -345,12 +358,10 @@ private:
    template <typename Tuple, std::size_t... I>
    void_t read_tuple_impl(Tuple &t, std::index_sequence<I...>) {
       std::error_code ec;
-      const bool success = (read_tuple_element<Tuple, I>(t, ec) && ...);
-      if (!success) {
+      if (const bool success = (read_tuple_element<Tuple, I>(t, ec) && ...); !success) {
          return tl::unexpected{ec};
-      } else {
-         return {};
       }
+      return {};
    }
 
    template <typename Tuple>
@@ -366,8 +377,7 @@ private:
    template <std::unsigned_integral T>
    expected<T> read() {
       constexpr auto size = sizeof(T);
-      auto ec = receive(size);
-      if (!ec) {
+      if (auto ec = receive(size); !ec) {
          return tl::unexpected(ec.error());
       }
 
@@ -447,14 +457,14 @@ private:
             continue;
          }
 
-         const int error = errno;
-         if (error != EWOULDBLOCK && error != EAGAIN) {
+         // ReSharper disable once CppIdenticalOperandsInBinaryExpression CppDFAConstantConditions
+         if (const int error = errno; error != EWOULDBLOCK && error != EAGAIN) {
             return report_error("Read error", error);
          }
       }
    }
 
-   [[nodiscard]] void_t send(std::span<std::uint8_t, std::dynamic_extent> payload) const {
+   [[nodiscard]] void_t send(const std::span<const std::uint8_t> payload) const {
       fd_set write_fds{}, err_fds{};
       timeval tv{};
 
@@ -510,8 +520,8 @@ private:
             continue;
          }
 
-         const int error = errno;
-         if (error != EWOULDBLOCK && error != EAGAIN) {
+         // ReSharper disable once CppIdenticalOperandsInBinaryExpression CppDFAConstantConditions
+         if (const int error = errno; error != EWOULDBLOCK && error != EAGAIN) {
             return report_error("Send error", error);
          }
       }
@@ -528,6 +538,8 @@ image_client client{};
 
 K_THREAD_STACK_DEFINE(image_client_thread_stack, CONFIG_APP_IMAGE_CLIENT_THREAD_STACK_SIZE);
 
+// ReSharper disable CppDeclaratorNeverUsed
+// NOLINTBEGIN(*-branch-clone, *-misplaced-const)
 K_THREAD_DEFINE(image_client_thread_id,
                 CONFIG_APP_IMAGE_CLIENT_THREAD_STACK_SIZE,
                 image_client::thread_fn,
@@ -537,6 +549,8 @@ K_THREAD_DEFINE(image_client_thread_id,
                 CONFIG_APP_IMAGE_CLIENT_THREAD_PRIORITY,
                 0,
                 0);
+// NOLINTEND(*-branch-clone, *-misplaced-const)
+// ReSharper restore CppDeclaratorNeverUsed
 
 } // namespace
 
@@ -582,10 +596,14 @@ int dummy_help(const shell *sh, size_t argc, const char **argv) {
 
 } // namespace
 
+// ReSharper disable CppVariableCanBeMadeConstexpr
+// NOLINTBEGIN(*-branch-clone)
 SHELL_STATIC_SUBCMD_SET_CREATE(image_client_commands,
                                SHELL_CMD_ARG(fetch, NULL, "Fetch an image", shell_do_fetch, 1, 0),
                                SHELL_CMD_ARG(stop, NULL, "Stop the image client", shell_do_stop, 1, 0),
                                SHELL_SUBCMD_SET_END);
+// NOLINTEND(*-branch-clone)
+// ReSharper restore CppVariableCanBeMadeConstexpr
 
 SHELL_SUBCMD_ADD((hei), image_client, &image_client_commands, "Image Client shell", dummy_help, 2, 0);
 

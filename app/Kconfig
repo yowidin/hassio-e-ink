@@ -62,6 +62,22 @@ config APP_IMAGE_CLIENT_IMAGE_BUFFER_SIZE
     int "Image client image buffer size"
     default 4096
 
+config APP_IMAGE_CLIENT_DEFAULT_SLEEP_DURATION_SECONDS
+    int "Image client default sleep duration"
+    help
+        Default sleep duration between image fetching cycles (in seconds)
+    default 10
+
+config APP_IMAGE_CLIENT_NUM_SHUTDOWN_REQUESTS
+    int "Number of image client shutdown requests"
+    help
+        Repeat a shutdown request this many times, just in case the power board misses one
+    default 10
+
+config APP_IMAGE_CLIENT_SHUTDOWN_REQUEST_DELAY_MS
+    int "Delay between image client shutdown requests (in milliseconds)"
+    default 100
+
 module = APP
 module-str = APP
 source "subsys/logging/Kconfig.template.log_config"

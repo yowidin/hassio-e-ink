@@ -23,13 +23,13 @@ using namespace zephyr;
 
 namespace {
 
-void_t check_and_init_input_pin(const struct gpio_dt_spec &spec) {
+void_t check_and_init_input_pin(const gpio_dt_spec &spec) {
    return gpio::ready(spec).and_then([&] {
       return gpio::configure(spec, GPIO_INPUT);
    });
 }
 
-void_t check_and_init_output_pin(const struct gpio_dt_spec &spec, bool initial_state) {
+void_t check_and_init_output_pin(const gpio_dt_spec &spec, bool initial_state) {
    return gpio::ready(spec)
       .and_then([&] {
          return gpio::configure(spec, GPIO_OUTPUT);
@@ -59,7 +59,7 @@ void_t update_ready_state(const struct device &dev) {
       });
 }
 
-void on_ready_interrupt(const struct device *gpio, struct gpio_callback *cb, uint32_t pins) {
+void on_ready_interrupt(const device *gpio, gpio_callback *cb, uint32_t pins) {
    ARG_UNUSED(gpio);
    ARG_UNUSED(pins);
 
@@ -67,7 +67,7 @@ void on_ready_interrupt(const struct device *gpio, struct gpio_callback *cb, uin
    (void)update_ready_state(*data->dev);
 }
 
-void_t setup_ready_pin(const struct device &dev) {
+void_t setup_ready_pin(const device &dev) {
    const auto &cfg = get_config(dev);
    auto &data = get_data(dev);
 
@@ -104,8 +104,8 @@ void_t reset(const it8951_config_t &cfg) {
       });
 }
 
-void_t read_device_info(const struct device &dev, it8951_device_info_t &info) {
-   return hal::write_command(dev, hal::command::get_device_info).and_then([&] {
+void_t read_device_info(const device &dev, it8951_device_info_t &info) {
+   return write_command(dev, hal::command::get_device_info).and_then([&] {
       std::array<std::uint16_t, 20> rx_buffer = {};
 
       auto read_string = [&rx_buffer](int start, auto &target) {
@@ -115,7 +115,7 @@ void_t read_device_info(const struct device &dev, it8951_device_info_t &info) {
       };
 
       return hal::read_data(dev, rx_buffer).and_then([&]() -> void_t {
-         // LOG_HEXDUMP_ERR(rx_buffer.data(), rx_buffer.size(), "Info message");
+         LOG_HEXDUMP_DBG(rx_buffer.data(), rx_buffer.size(), "Info message");
          info.panel_width = rx_buffer[0];
          info.panel_height = rx_buffer[1];
 
@@ -132,7 +132,7 @@ void_t read_device_info(const struct device &dev, it8951_device_info_t &info) {
    });
 }
 
-expected<void> try_init(const struct device &dev) {
+expected<void> try_init(const device &dev) {
    const auto &cfg = get_config(dev);
    auto &data = get_data(dev);
 
@@ -146,7 +146,7 @@ expected<void> try_init(const struct device &dev) {
          return check_and_init_output_pin(cfg.cs_pin, false);
       })
       .and_then([&] {
-         return zephyr::spi::ready(cfg.spi);
+         return spi::ready(cfg.spi);
       })
       .and_then([&] {
          return reset(cfg);
@@ -167,9 +167,8 @@ expected<void> try_init(const struct device &dev) {
          if (vcom != cfg.vcom) {
             LOG_INF("Updating VCOM value from %" PRIu16 " to %" PRIu16, vcom, cfg.vcom);
             return hal::vcom::set(dev, cfg.vcom);
-         } else {
-            return {};
          }
+         return {};
       })
       .and_then([&]() -> void_t {
          // Only at this point are we sure that we have a functioning board
@@ -193,9 +192,8 @@ expected<void> try_init(const struct device &dev) {
 
 extern "C" {
 
-int it8951_init(const struct device *dev) {
-   auto res = try_init(*dev);
-   if (!res) {
+int it8951_init(const device *dev) {
+   if (auto res = try_init(*dev); !res) {
       return -res.error().value();
    }
 
